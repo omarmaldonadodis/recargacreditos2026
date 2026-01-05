@@ -1,0 +1,34 @@
+/* Aumenta el ancho del navbar para toda la pantalla */
+.container-fluid {
+    padding-left: 0;
+    padding-right: 0;
+
+  }
+  
+  /* Alinea el logo a la izquierda */
+  .logo-container {
+    margin-left: 20px;
+  }
+  
+  /* Aumenta el espacio entre los ítems del menú */
+  .nav-item-custom {
+    padding: 0 15px;
+    white-space: nowrap; /* Evita que los elementos salten a una nueva línea */
+  }
+  
+  /* Ajusta el estilo del navbar al colapsar */
+  .navbar-collapse {
+    justify-content: flex-end;
+  }
+  
+  /* El menú se colapsa automáticamente en pantallas menores a 1200px */
+  @media (max-width: 1200px) {
+    .navbar-collapse {
+      display: none;
+    }
+  
+    .navbar-expand-lg .navbar-collapse {
+      display: block;
+    }
+  }
+  
