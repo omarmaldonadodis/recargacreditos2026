@@ -1,0 +1,27 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  
+  .container {
+    min-height: 15vh;
+    overflow-y: auto;
+  }
+  
+  .fixed-bottom {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
