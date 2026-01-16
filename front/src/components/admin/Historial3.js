@@ -22,6 +22,7 @@ import api from "../../services/axiosConfig";
 import "react-datepicker/dist/react-datepicker.css";
 import es from "date-fns/locale/es";
 import { formatInTimeZone } from "date-fns-tz";
+import { isMobile } from "react-device-detect";
 
 
 // Registrar el idioma español y personalizar los meses
@@ -51,11 +52,53 @@ const esCustom = {
 
 registerLocale("es-custom", esCustom);
   
-const formatTextByChunks = (text, chunkSize = 15) => {
+  const formatTextByChunks = (text) => {
+    if (!text) return ;
+
+    const chunkSize = isMobile ? 16 : 40;
+
+    const words = text.split(' ');
+    let lines = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      // 🚨 palabra más larga que el límite → forzar corte
+      if (word.length > chunkSize) {
+        // guardar lo que ya había
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+
+        for (let i = 0; i < word.length; i += chunkSize) {
+          const part = word.slice(i, i + chunkSize);
+          const isLast = i + chunkSize >= word.length;
+          lines.push(part + (isLast ? '' : '-'));
+        }
+        continue;
+      }
+
+      // ¿Cabe la palabra en la línea actual?
+      const testLine = currentLine
+        ? currentLine + ' ' + word
+        : word;
+
+      if (testLine.length <= chunkSize) {
+        currentLine = testLine;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines.join('\n');
+  };
 
 
-  return text;
-};
 
 
 const Historial = () => {

@@ -360,23 +360,22 @@ const HacerRecarga = () => {
       types: [
         {
           name: "Recarga",
-          idServicio: "104",
+          idServicio: "1556",
           amounts: [
-            { value: 10, idProducto: "18583" },
-            { value: 20, idProducto: "261" },
-            { value: 30, idProducto: "262" },
-            { value: 40, idProducto: "263" },
-            { value: 50, idProducto: "264" },
-            { value: 80, idProducto: "18584" },
-            { value: 100, idProducto: "265" },
-            { value: 150, idProducto: "266" },
-            { value: 200, idProducto: "267" },
-            { value: 250, idProducto: "5746" },
-            { value: 300, idProducto: "268" },
-            { value: 400, idProducto: "18550" },
-            { value: 500, idProducto: "269" },
-            { value: 700, idProducto: "18551" },
+            { value: 25.0, idProducto: "19476", descripcion: "Paquete VIRGIN $25" },
+            { value: 50.0, idProducto: "10559", descripcion: "Paquete VIRGIN $50" },
+            { value: 75.0, idProducto: "19484", descripcion: "Paquete VIRGIN $75" },
+            { value: 100.0, idProducto: "10562", descripcion: "Paquete VIRGIN $100" },
+            { value: 150.0, idProducto: "10565", descripcion: "Paquete VIRGIN $150" },
+            { value: 200.0, idProducto: "10568", descripcion: "Paquete VIRGIN $200" },
+            { value: 203.0, idProducto: "19487", descripcion: "Paquete 3X30 VIRGIN $203" },
+            { value: 250.0, idProducto: "19485", descripcion: "Paquete VIRGIN $250" },
+            { value: 300.0, idProducto: "10571", descripcion: "Paquete VIRGIN $300" },
+            { value: 400.0, idProducto: "19486", descripcion: "Paquete VIRGIN $400" },
+            { value: 406.0, idProducto: "19488", descripcion: "Paquete 6X30 VIRGIN $406" },
+            { value: 999.0, idProducto: "19489", descripcion: "Paquete 12X30 VIRGIN $999" },
           ],
+
         },
       ],
     },
@@ -386,31 +385,15 @@ const HacerRecarga = () => {
           name: "Internet",
           idServicio: "2284",
           amounts: [
-            { value: 45.0, idProducto: "18575", descripcion: "3 DÍAS 4GB" },
-            { value: 55.0, idProducto: "18102", descripcion: "55 7 DÍAS" },
-            {
-              value: 55.0,
-              idProducto: "18576",
-              descripcion: "7 DÍAS 3GB+Redes",
-            },
-            {
-              value: 65.0,
-              idProducto: "18577",
-              descripcion: "7 DÍAS 10GB+Redes",
-            },
-            { value: 85.0, idProducto: "18104", descripcion: "10 DÍAS" },
-            { value: 100.0, idProducto: "18578", descripcion: "15D/6GB+Redes" },
-            { value: 115.0, idProducto: "18580", descripcion: "30D/3GB+RSSS" },
-            { value: 120.0, idProducto: "18581", descripcion: "30D/5GB+RSSS" },
-            { value: 125.0, idProducto: "18579", descripcion: "15D/20GB+RSSS" },
-            { value: 200.0, idProducto: "18109", descripcion: "15GB ILIM 30D" },
-            { value: 220.0, idProducto: "18110", descripcion: "40GB 30 DÍAS" },
-            {
-              value: 297.0,
-              idProducto: "18111",
-              descripcion: "40GB PLUS 3 DÍAS",
-            },
-            { value: 499.0, idProducto: "18112", descripcion: "100GB 30 DÍAS" },
+            { value: 50.0, idProducto: "14293", descripcion: "ABIB 50" },
+            { value: 60.0, idProducto: "14296", descripcion: "ABIB 60" },
+            { value: 80.0, idProducto: "14299", descripcion: "ABIB 80" },
+            { value: 100.0, idProducto: "14302", descripcion: "ABIB 100" },
+            { value: 130.0, idProducto: "14305", descripcion: "ABIB 130" },
+            { value: 150.0, idProducto: "14308", descripcion: "ABIB 150" },
+            { value: 155.0, idProducto: "14311", descripcion: "ABIB 155" },
+            { value: 200.0, idProducto: "14317", descripcion: "ABIB 200" },
+            { value: 240.0, idProducto: "14314", descripcion: "ABIB 240" },
           ],
         },
       ],
@@ -418,51 +401,40 @@ const HacerRecarga = () => {
     Axios: {
       types: [
         {
-          name: "Paquete",
+          name: "Mobile",
           idServicio: "2035",
           amounts: [
-            { value: 12.0, idProducto: "18303" },
-            { value: 25.0, idProducto: "18113" },
-            { value: 35.0, idProducto: "18304" },
-            { value: 50.0, idProducto: "12676" },
-            { value: 100.0, idProducto: "18115", descripcion: "Mas Dias" },
-            { value: 100.0, idProducto: "18116", descripcion: "Mas Megas" },
-            {
-              value: 120.0,
-              idProducto: "18305",
-              descripcion: "Ilimitado Mas Megas",
-            },
-            { value: 150.0, idProducto: "12682" },
-            { value: 200.0, idProducto: "18118", descripcion: "Ilimitado 200" },
-            {
-              value: 230.0,
-              idProducto: "18119",
-              descripcion: "Ilimitado 40 GB",
-            },
-            { value: 300.0, idProducto: "12688" },
-            {
-              value: 300.0,
-              idProducto: "18120",
-              descripcion: "TRIMESTRAL 5 GB",
-            },
-            { value: 500.0, idProducto: "12691", descripcion: "500" },
-            {
-              value: 550.0,
-              idProducto: "18122",
-              descripcion: "SEMESTRAL 5 GB",
-            },
-            {
-              value: 550.0,
-              idProducto: "18121",
-              descripcion: "TRIMESTRAL 40 GB",
-            },
-            { value: 1000.0, idProducto: "18124", descripcion: "ANUAL 5 GB" },
-            {
-              value: 1050.0,
-              idProducto: "18123",
-              descripcion: "SEMESTRAL 40 GB",
-            },
-            { value: 2000.0, idProducto: "18125", descripcion: "ANUAL 40 GB" },
+            { value: 40.0, idProducto: "14143", descripcion: "Axios 2GB Express" },
+            { value: 50.0, idProducto: "12679", descripcion: "Axios 2GB Semana" },
+            { value: 70.0, idProducto: "12694", descripcion: "Axios 6GB Semana Plus" },
+            { value: 100.0, idProducto: "12682", descripcion: "Axios 5GB Quincena" },
+            { value: 100.0, idProducto: "18306", descripcion: "Axios 2GB Mes" },
+            { value: 130.0, idProducto: "12685", descripcion: "Axios 10GB Quincena Plus" },
+            { value: 150.0, idProducto: "19112", descripcion: "Axios 4GB Mes Plus" },
+            { value: 190.0, idProducto: "19113", descripcion: "Axios 12GB Power" },
+            { value: 250.0, idProducto: "19114", descripcion: "Axios 24GB Power Max" },
+            { value: 300.0, idProducto: "19115", descripcion: "Axios 35GB Ultra" },
+            { value: 500.0, idProducto: "19116", descripcion: "Axios 50GB Ilimitado" },
+          ],
+        },
+        {
+          name: "Internet en Casa",
+          idServicio: "3074",
+          amounts: [
+            { value: 99.0, idProducto: "18322", descripcion: "Axios Internet en casa 99" },
+            { value: 299.0, idProducto: "18323", descripcion: "Axios Internet en casa 299" },
+            { value: 349.0, idProducto: "18324", descripcion: "Axios internet en casa 349" },
+            { value: 439.0, idProducto: "18325", descripcion: "Axios internet en casa 439" },
+          ],
+        },
+        {
+          name: "Internet Movil",
+          idServicio: "3075",
+          amounts: [
+            { value: 119.0, idProducto: "18326", descripcion: "Axios internet movil 119" },
+            { value: 229.0, idProducto: "18327", descripcion: "Axios internet movil 229" },
+            { value: 359.0, idProducto: "18328", descripcion: "Axios internet movil 279" },
+            { value: 559.0, idProducto: "18329", descripcion: "Axios internet movil 499" },
           ],
         },
       ],
@@ -473,25 +445,15 @@ const HacerRecarga = () => {
           name: "Paquete",
           idServicio: "2281",
           amounts: [
-            { value: 35.0, idProducto: "14251", descripcion: "Conecta 3" },
-            { value: 80.0, idProducto: "18356", descripcion: "CONECTA 7 RRSS" },
-            { value: 105.0, idProducto: "18357", descripcion: "TOTAL 7 RRSS" },
-            {
-              value: 125.0,
-              idProducto: "18359",
-              descripcion: "CONEXION 15 RRSS",
-            },
-            { value: 165.0, idProducto: "18358", descripcion: "TOTAL 15 RRSS" },
-            { value: 170.0, idProducto: "18361", descripcion: "CONECTA RRSS" },
-            {
-              value: 240.0,
-              idProducto: "18360",
-              descripcion: "EXPANSION RRSS",
-            },
-            { value: 290.0, idProducto: "18363", descripcion: "CONEXION RRSS" },
-            { value: 350.0, idProducto: "18362", descripcion: "TOTAL RRSS" },
-            { value: 400.0, idProducto: "14287", descripcion: "Total plus" },
-            { value: 700.0, idProducto: "14290", descripcion: "Premium" },
+            { value: 70.0, idProducto: "14251", descripcion: "Semanal 2GB" },
+            { value: 140.0, idProducto: "14254", descripcion: "Quincenal 5 GB" },
+            { value: 165.0, idProducto: "14263", descripcion: "Mes 2 GB" },
+            { value: 175.0, idProducto: "14260", descripcion: "Quincenal Plus 10 GB" },
+            { value: 235.0, idProducto: "14266", descripcion: "Mes 4 GB" },
+            { value: 290.0, idProducto: "14269", descripcion: "Mes 12 GB" },
+            { value: 365.0, idProducto: "14275", descripcion: "Mes 24 GB" },
+            { value: 430.0, idProducto: "14278", descripcion: "Mes 35 GB" },
+            { value: 760.0, idProducto: "14281", descripcion: "Mes 50 GB" },
           ],
         },
       ],
@@ -521,14 +483,14 @@ const HacerRecarga = () => {
           name: "Recarga",
           idServicio: "1446",
           amounts: [
-            { value: 80.0, idProducto: "9807", descripcion: "Plan Conoce" },
-            { value: 120.0, idProducto: "14350", descripcion: "Plan Fan" },
-            { value: 150.0, idProducto: "9810", descripcion: "Plan Explora" },
-            { value: 200.0, idProducto: "14353", descripcion: "Plan Causa" },
-            { value: 275.0, idProducto: "18321", descripcion: "Plan Superfan" },
-            { value: 300.0, idProducto: "9813", descripcion: "Plan Disfruta" },
-            { value: 400.0, idProducto: "9816", descripcion: "Plan Comparte" },
-            { value: 500.0, idProducto: "9819", descripcion: "Plan Vuela" },
+            { value: 49.0, idProducto: "9807", descripcion: "Plan Conoce" },
+            { value: 89.0, idProducto: "14350", descripcion: "Plan Conecta" },
+            { value: 149.0, idProducto: "9810", descripcion: "Plan Explora" },
+            { value: 229.0, idProducto: "14353", descripcion: "Plan Causa" },
+            { value: 279.0, idProducto: "18321", descripcion: "Plan Navega" },
+            { value: 349.0, idProducto: "9813", descripcion: "Plan Disfruta" },
+            { value: 449.0, idProducto: "9816", descripcion: "Plan Comparte" },
+            { value: 599.0, idProducto: "9819", descripcion: "Plan Vuela" },
           ],
         },
       ],
@@ -564,51 +526,16 @@ const HacerRecarga = () => {
           name: "Paquete",
           idServicio: "2962",
           amounts: [
-            {
-              value: 50.0,
-              idProducto: "18141",
-              descripcion: "50 RS Ilimitado",
-            },
-            {
-              value: 60.0,
-              idProducto: "18140",
-              descripcion: "60 RS Ilimitado",
-            },
-            {
-              value: 99.0,
-              idProducto: "18144",
-              descripcion: "99 RS Ilimitado",
-            },
-            {
-              value: 100.0,
-              idProducto: "18142",
-              descripcion: "100 RS Ilimitado",
-            },
-            {
-              value: 119.0,
-              idProducto: "18612",
-              descripcion: "119 RS Ilimitado",
-            },
-            {
-              value: 120.0,
-              idProducto: "18143",
-              descripcion: "120 RS Ilimitado",
-            },
-            {
-              value: 140.0,
-              idProducto: "18613",
-              descripcion: "140 RS Ilimitado",
-            },
-            {
-              value: 200.0,
-              idProducto: "18146",
-              descripcion: "200 RS Ilimitado",
-            },
-            {
-              value: 230.0,
-              idProducto: "18145",
-              descripcion: "230 RS Ilimitado",
-            },
+            { value: 50.0, idProducto: "18141", descripcion: "50 RS Ilimitado" },
+            { value: 70.0, idProducto: "17296", descripcion: "70 RS Ilimitado" },
+            { value: 99.0, idProducto: "19121", descripcion: "99 RS Ilimitado" },
+            { value: 100.0, idProducto: "18142", descripcion: "100 RS Ilimitado" },
+            { value: 130.0, idProducto: "17299", descripcion: "130 RS Ilimitado" },
+            { value: 150.0, idProducto: "18048", descripcion: "150 RS Ilimitado" },
+            { value: 190.0, idProducto: "17302", descripcion: "190 RS Ilimitado" },
+            { value: 250.0, idProducto: "17305", descripcion: "250 RS Ilimitado" },
+            { value: 300.0, idProducto: "17308", descripcion: "300 RS Ilimitado" },
+            { value: 500.0, idProducto: "19119", descripcion: "500 RS Ilimitado" },
           ],
         },
       ],
@@ -619,13 +546,13 @@ const HacerRecarga = () => {
           name: "Paquete",
           idServicio: "1532",
           amounts: [
-            { value: 50.0, idProducto: "18289", descripcion: "Jr 50+" },
-            { value: 60.0, idProducto: "18288", descripcion: "JR 60" },
-            { value: 99.0, idProducto: "10283", descripcion: "Plan JR Basico" },
-            { value: 120.0, idProducto: "18291", descripcion: "Jr 120+" },
-            { value: 130.0, idProducto: "18085", descripcion: "JR 130" },
-            { value: 200.0, idProducto: "18293", descripcion: "Jr 200+" },
-            { value: 230.0, idProducto: "18292", descripcion: "Jr 230" },
+            { value: 60.0, idProducto: "10247", descripcion: "JR 7 2G" },
+            { value: 80.0, idProducto: "18084", descripcion: "JR 7 6G" },
+            { value: 100.0, idProducto: "10253", descripcion: "JR 30 2G" },
+            { value: 130.0, idProducto: "18089", descripcion: "JR 15 10G" },
+            { value: 160.0, idProducto: "18087", descripcion: "JR 30 4G" },
+            { value: 200.0, idProducto: "18086", descripcion: "JR 30 12G" },
+            { value: 260.0, idProducto: "18090", descripcion: "JR 30 24G" },
           ],
         },
         {
@@ -647,16 +574,12 @@ const HacerRecarga = () => {
           name: "Recarga",
           idServicio: "140",
           amounts: [
-            { value: 75.0, idProducto: "18668", descripcion: "LIKE FLEX" },
-            { value: 87.0, idProducto: "18662", descripcion: "LIKE SKINNY" },
-            { value: 159.0, idProducto: "18669", descripcion: "LIKE SOCIAL" },
-            { value: 169.0, idProducto: "18670", descripcion: "LIKE CONNECT" },
-            { value: 182.0, idProducto: "18663", descripcion: "LIKE SLIM" },
-            { value: 189.0, idProducto: "18664", descripcion: "LIKE WIDE" },
-            { value: 255.0, idProducto: "18671", descripcion: "LIKE TRENDY" },
-            { value: 296.0, idProducto: "18665", descripcion: "LIKE REGULAR" },
-            { value: 349.0, idProducto: "18666", descripcion: "LIKE RELAX" },
-            { value: 715.0, idProducto: "18667", descripcion: "LIKE EXTRA" },
+            { value: 77.0, idProducto: "453", descripcion: "Plan LikeFlash" },
+            { value: 135.0, idProducto: "7657", descripcion: "Plan LikeChill" },
+            { value: 169.0, idProducto: "7660", descripcion: "Plan LikeMore" },
+            { value: 230.0, idProducto: "17426", descripcion: "Plan LikeOn" },
+            { value: 280.0, idProducto: "17429", descripcion: "Plan LikePlay" },
+            { value: 340.0, idProducto: "19622", descripcion: "Plan LikeUp" },
           ],
         },
       ],
@@ -846,13 +769,14 @@ const HacerRecarga = () => {
           name: "Plan",
           idServicio: "1449",
           amounts: [
-            { value: 90.0, idProducto: "9840", descripcion: "Recarga Rifate" },
-            { value: 150.0, idProducto: "9843", descripcion: "Plan Capo" },
-            { value: 200.0, idProducto: "9846", descripcion: "Plan Chido" },
-            { value: 300.0, idProducto: "18126", descripcion: "Plan Idolo" },
-            { value: 350.0, idProducto: "9849", descripcion: "Plan Crack" },
-            { value: 420.0, idProducto: "9852", descripcion: "Plan Perro" },
-            { value: 600.0, idProducto: "9855", descripcion: "Plan OLV" },
+            { value: 49.0, idProducto: "19137", descripcion: "Plan Bara" },
+            { value: 99.0, idProducto: "9840", descripcion: "Plan Rifate" },
+            { value: 149.0, idProducto: "9843", descripcion: "Plan Capo" },
+            { value: 229.0, idProducto: "9846", descripcion: "Plan Chido" },
+            { value: 299.0, idProducto: "18126", descripcion: "Plan Idolo" },
+            { value: 399.0, idProducto: "9849", descripcion: "Plan Crack" },
+            { value: 499.0, idProducto: "9852", descripcion: "Plan Perro" },
+            { value: 699.0, idProducto: "9855", descripcion: "Plan OLV" },
           ],
         },
       ],
@@ -863,31 +787,15 @@ const HacerRecarga = () => {
           name: "Plan",
           idServicio: "2122",
           amounts: [
-            { value: 40.0, idProducto: "13348", descripcion: "RIN 03" },
-            { value: 50.0, idProducto: "13330", descripcion: "RIN 3" },
-            {
-              value: 80.0,
-              idProducto: "18373",
-              descripcion: "RIN 7 ILIMITADO",
-            },
-            { value: 110.0, idProducto: "18378", descripcion: "RIN 30 RRSS" },
-            {
-              value: 135.0,
-              idProducto: "18375",
-              descripcion: "RIN 15 ILIMITADO",
-            },
-            {
-              value: 150.0,
-              idProducto: "18377",
-              descripcion: "RIN 30 ILIMITADO",
-            },
-            { value: 200.0, idProducto: "18380", descripcion: "RINO RRSS" },
-            {
-              value: 250.0,
-              idProducto: "18379",
-              descripcion: "RINO ILIMITADO",
-            },
-            { value: 299.0, idProducto: "13345", descripcion: "RINO +" },
+            { value: 50.0, idProducto: "13333", descripcion: "RINO 50" },
+            { value: 80.0, idProducto: "18374", descripcion: "RINO 80" },
+            { value: 120.0, idProducto: "18376", descripcion: "RINO 120" },
+            { value: 135.0, idProducto: "18381", descripcion: "RINO 135" },
+            { value: 150.0, idProducto: "13336", descripcion: "RINO 150" },
+            { value: 200.0, idProducto: "13339", descripcion: "RINO 200" },
+            { value: 250.0, idProducto: "18382", descripcion: "RINO 250" },
+            { value: 300.0, idProducto: "13342", descripcion: "RINO 300" },
+            { value: 500.0, idProducto: "18372", descripcion: "RINO 500" },
           ],
         },
       ],
@@ -953,31 +861,14 @@ const HacerRecarga = () => {
           name: "Plan",
           idServicio: "1493",
           amounts: [
-            {
-              value: 30.0,
-              idProducto: "10088",
-              descripcion: "Telmov 30-3D ilimitado",
-            },
-            {
-              value: 50.0,
-              idProducto: "10091",
-              descripcion: "Telmov 50-7D ilimitado",
-            },
-            {
-              value: 100.0,
-              idProducto: "10094",
-              descripcion: "Telmov 30D-100",
-            },
-            {
-              value: 200.0,
-              idProducto: "10097",
-              descripcion: "Telmov 200-30D ilimitado",
-            },
-            {
-              value: 300.0,
-              idProducto: "10100",
-              descripcion: "Telmov 300-30D Todos",
-            },
+            { value: 40.0, idProducto: "19110", descripcion: "TELMOVIL 40-3D (Basico)" },
+            { value: 50.0, idProducto: "10091", descripcion: "TELMOVIL 50-7D (Plus)" },
+            { value: 70.0, idProducto: "19117", descripcion: "TELMOVIL 70-7D (Pro)" },
+            { value: 100.0, idProducto: "10094", descripcion: "TELMOVIL 100-30D (Ejecutivo)" },
+            { value: 150.0, idProducto: "19118", descripcion: "TELMOVIL 150-30D (Premium)" },
+            { value: 200.0, idProducto: "10097", descripcion: "TELMOVIL 200-30D (VIP)" },
+            { value: 300.0, idProducto: "10100", descripcion: "TELMOVIL 300-30D (Oro)" },
+            { value: 500.0, idProducto: "10088", descripcion: "TELMOVIL 500-30D (Diamante)" },
           ],
         },
       ],
@@ -1002,39 +893,38 @@ const HacerRecarga = () => {
           name: "Paquete",
           idServicio: "2152",
           amounts: [
-            { value: 55.0, idProducto: "18093" },
-            { value: 65.0, idProducto: "18092" },
-            { value: 105.0, idProducto: "18095" },
-            { value: 110.0, idProducto: "18097" },
-            { value: 125.0, idProducto: "18094" },
-            { value: 135.0, idProducto: "18096" },
-            { value: 210.0, idProducto: "18099" },
-            { value: 240.0, idProducto: "18098" },
-            { value: 330.0, idProducto: "18100" },
-            { value: 510.0, idProducto: "18101" },
+            { value: 55.0, idProducto: "18093", descripcion: "ULTRACEL 55" },
+            { value: 80.0, idProducto: "13459", descripcion: "ULTRACEL $80" },
+            { value: 105.0, idProducto: "18095", descripcion: "ULTRACEL 105" },
+            { value: 110.0, idProducto: "18097", descripcion: "ULTRACEL 110" },
+            { value: 150.0, idProducto: "13462", descripcion: "ULTRACEL $150" },
+            { value: 160.0, idProducto: "13471", descripcion: "ULTRACEL $160" },
+            { value: 170.0, idProducto: "13465", descripcion: "ULTRACEL $170" },
+            { value: 210.0, idProducto: "18099", descripcion: "ULTRACEL 210" },
+            { value: 270.0, idProducto: "13468", descripcion: "ULTRACEL $270" },
           ],
         },
         {
           name: "Internet Hogar",
           idServicio: "2155",
           amounts: [
-            { value: 99.0, idProducto: "13504" },
-            { value: 299.0, idProducto: "13507" },
-            { value: 359.0, idProducto: "13510" },
-            { value: 399.0, idProducto: "13513" },
-            { value: 429.0, idProducto: "13516" },
+            { value: 99.0, idProducto: "13504", descripcion: "HOGAR 99" },
+            { value: 299.0, idProducto: "13507", descripcion: "HOGAR 299" },
+            { value: 359.0, idProducto: "13510", descripcion: "HOGAR 359" },
+            { value: 399.0, idProducto: "13513", descripcion: "HOGAR 399" },
+            { value: 429.0, idProducto: "13516", descripcion: "HOGAR 429" },
           ],
         },
         {
           name: "Portatil",
           idServicio: "2158",
           amounts: [
-            { value: 125.0, idProducto: "13525" },
-            { value: 150.0, idProducto: "13528" },
-            { value: 250.0, idProducto: "13531" },
-            { value: 399.0, idProducto: "13534" },
-            { value: 475.0, idProducto: "13537" },
-            { value: 625.0, idProducto: "13540" },
+            { value: 125.0, idProducto: "13525", descripcion: "PORTATIL 125" },
+            { value: 150.0, idProducto: "13528", descripcion: "PORTATIL 150" },
+            { value: 250.0, idProducto: "13531", descripcion: "PORTATIL 250" },
+            { value: 399.0, idProducto: "13534", descripcion: "PORTATIL 399" },
+            { value: 495.0, idProducto: "19109", descripcion: "PORTATIL 495" },
+            { value: 625.0, idProducto: "13540", descripcion: "PORTATIL 625" },
           ],
         },
       ],
@@ -1042,92 +932,39 @@ const HacerRecarga = () => {
     Valor: {
       types: [
         {
-          name: "Internet en Casa",
-          idServicio: "1263",
+          name: "Telefonia Movil",
+          idServicio: "1257",
           amounts: [
-            {
-              value: 99.0,
-              idProducto: "8661",
-              descripcion: "Internet en Casa 5MB 20GB",
-            },
-            {
-              value: 110.0,
-              idProducto: "14194",
-              descripcion: "Internet en Casa 10MB 20GB",
-            },
-            {
-              value: 349.0,
-              idProducto: "8679",
-              descripcion: "Internet en Casa 5MB 100GB",
-            },
-            {
-              value: 399.0,
-              idProducto: "8667",
-              descripcion: "Internet en Casa 10MB 150GB",
-            },
-            {
-              value: 439.0,
-              idProducto: "14197",
-              descripcion: "Internet en Casa 10MB 180GB",
-            },
+            { value: 70.0, idProducto: "8706", descripcion: "VALOR 6GB 7Dias RRSS" },
+            { value: 95.0, idProducto: "8715", descripcion: "VALOR 3GB 30Dias Porta" },
+            { value: 100.0, idProducto: "8688", descripcion: "VALOR 5G 15Dias RRSS" },
+            { value: 130.0, idProducto: "8709", descripcion: "VALOR 10GB 15Dias RRSS" },
+            { value: 150.0, idProducto: "8712", descripcion: "VALOR 4GB 30Dias RRSS" },
+            { value: 250.0, idProducto: "8700", descripcion: "VALOR 24GB 30Dias RRSS" },
+            { value: 350.0, idProducto: "8703", descripcion: "VALOR 35GB 30Dias RRSS" },
           ],
         },
         {
           name: "Internet Movil",
           idServicio: "1260",
           amounts: [
-            { value: 100.0, idProducto: "18229", descripcion: "MiFi 6GB" },
-            { value: 150.0, idProducto: "18354", descripcion: "MiFi 5GB" },
-            { value: 239.0, idProducto: "8649", descripcion: "MiFi 10GB" },
-            { value: 360.0, idProducto: "8652", descripcion: "MiFi 20GB" },
-            { value: 450.0, idProducto: "8655", descripcion: "MiFi 30GB" },
-            { value: 590.0, idProducto: "8658", descripcion: "MiFi 50GB" },
+            { value: 110.0, idProducto: "18229", descripcion: "MiFi 6GB" },
+            { value: 160.0, idProducto: "18354", descripcion: "MiFi 5GB" },
+            { value: 245.0, idProducto: "8649", descripcion: "MiFi 10GB" },
+            { value: 375.0, idProducto: "8652", descripcion: "MiFi 20GB" },
+            { value: 480.0, idProducto: "8655", descripcion: "MiFi 30GB" },
+            { value: 620.0, idProducto: "8658", descripcion: "MiFi 50GB" },
           ],
         },
         {
-          name: "Telefonía Movil",
-          idServicio: "1257",
+          name: "Internet en Casa",
+          idServicio: "1263",
           amounts: [
-            {
-              value: 50.0,
-              idProducto: "18339",
-              descripcion: "Compartir 7 Dias",
-            },
-            {
-              value: 60.0,
-              idProducto: "18338",
-              descripcion: "Redes Sociales 7 Dias",
-            },
-            {
-              value: 100.0,
-              idProducto: "18341",
-              descripcion: "Compartir 6GB 15 Dias",
-            },
-            {
-              value: 120.0,
-              idProducto: "18340",
-              descripcion: "Redes Sociales 15 Dias",
-            },
-            {
-              value: 140.0,
-              idProducto: "18342",
-              descripcion: "Redes Sociales 30 Dias 5G",
-            },
-            {
-              value: 230.0,
-              idProducto: "18343",
-              descripcion: "Redes Sociales 30 Dias 40GB",
-            },
-            {
-              value: 300.0,
-              idProducto: "18344",
-              descripcion: "Compartir 40GB 30 Dias",
-            },
-            {
-              value: 499.0,
-              idProducto: "18226",
-              descripcion: "Compartir 100GB 30 Dias",
-            },
+            { value: 99.0, idProducto: "8661", descripcion: "Internet en Casa 5MB 20GB" },
+            { value: 115.0, idProducto: "14194", descripcion: "Internet en Casa 10MB 20GB" },
+            { value: 349.0, idProducto: "8679", descripcion: "Internet en Casa 5MB 100GB" },
+            { value: 399.0, idProducto: "8667", descripcion: "Internet en Casa 10MB 150GB" },
+            { value: 439.0, idProducto: "14197", descripcion: "Internet en Casa 10MB 180GB" },
           ],
         },
       ],
@@ -1138,86 +975,13 @@ const HacerRecarga = () => {
           name: "General",
           idServicio: "2023",
           amounts: [
-            {
-              value: 70.0,
-              idProducto: "18421",
-              descripcion: "WIK 7 Dias 10 GB",
-            },
-            {
-              value: 110.0,
-              idProducto: "18423",
-              descripcion: "WIK 15 Dias 6 GB",
-            },
-            {
-              value: 130.0,
-              idProducto: "18424",
-              descripcion: "WIK 30 Dias 3GB",
-            },
-            {
-              value: 150.0,
-              idProducto: "18426",
-              descripcion: "WIK 30 Dias 5 GB",
-            },
-            {
-              value: 230.0,
-              idProducto: "18425",
-              descripcion: "WIK 30 Dias 15 GB",
-            },
-            {
-              value: 250.0,
-              idProducto: "18422",
-              descripcion: "WIK 30 Dias 40 GB",
-            },
-            {
-              value: 300.0,
-              idProducto: "12619",
-              descripcion: "Wik ilimitado* 300 p/compartir",
-            },
-            {
-              value: 500.0,
-              idProducto: "12622",
-              descripcion: "Wik ilimitado* 500 p/compartir",
-            },
-            {
-              value: 550.0,
-              idProducto: "18430",
-              descripcion: "WIK 6 MESES 40GB",
-            },
-            {
-              value: 670.0,
-              idProducto: "18428",
-              descripcion: "WIK 6 MESES 5GB",
-            },
-            {
-              value: 1000.0,
-              idProducto: "18431",
-              descripcion: "WIK 12 MESES 3GB",
-            },
-            {
-              value: 1150.0,
-              idProducto: "18429",
-              descripcion: "WIK 6 MESES 15GB",
-            },
-            {
-              value: 1200.0,
-              idProducto: "18432",
-              descripcion: "WIK 12 MESES 5GB",
-            },
-            {
-              value: 1400.0,
-              idProducto: "18430",
-              descripcion: "WIK 6 MESES 40GB",
-            },
-            {
-              value: 2000.0,
-              idProducto: "18433",
-              descripcion: "WIK 12 MESES 15GB",
-            },
-            {
-              value: 2500.0,
-              idProducto: "18434",
-              descripcion: "WIK 12 MESES 40GB",
-            },
+            { value: 80.0, idProducto: "12601", descripcion: "Wik Pro 6 GB" },
+            { value: 100.0, idProducto: "12598", descripcion: "Wik Pro 2 GB" },
+            { value: 130.0, idProducto: "12604", descripcion: "Wik Pro 10 GB" },
+            { value: 150.0, idProducto: "12610", descripcion: "Wik Pro 4 GB" },
+            { value: 250.0, idProducto: "12607", descripcion: "Wik Pro 12 GB" },
+            { value: 350.0, idProducto: "12613", descripcion: "Wik Pro 24 GB" },
+            { value: 500.0, idProducto: "12616", descripcion: "Wik Pro 50 GB" },
           ],
         },
         {
@@ -1236,41 +1000,13 @@ const HacerRecarga = () => {
           name: "Internet MiFi",
           idServicio: "2134",
           amounts: [
-            {
-              value: 100.0,
-              idProducto: "13369",
-              descripcion: "WIK MIFI 10 GB 7D",
-            },
-            {
-              value: 125.0,
-              idProducto: "13372",
-              descripcion: "WIK MIFI 5 GB 30D",
-            },
-            {
-              value: 180.0,
-              idProducto: "13375",
-              descripcion: "WIK MIFI 20 GB 7D",
-            },
-            {
-              value: 250.0,
-              idProducto: "13378",
-              descripcion: "WIK MIFI 10 GB 30D",
-            },
-            {
-              value: 350.0,
-              idProducto: "13381",
-              descripcion: "WIK MIFI 20 GB 30D",
-            },
-            {
-              value: 450.0,
-              idProducto: "13384",
-              descripcion: "WIK MIFI 30 GB 30D",
-            },
-            {
-              value: 550.0,
-              idProducto: "17666",
-              descripcion: "WIK MIFI 50 GB 30D",
-            },
+            { value: 100.0, idProducto: "13369", descripcion: "WIK MIFI 10 GB 7D" },
+            { value: 125.0, idProducto: "13372", descripcion: "WIK MIFI 5 GB 30D" },
+            { value: 180.0, idProducto: "13375", descripcion: "WIK MIFI 20 GB 7D" },
+            { value: 250.0, idProducto: "13378", descripcion: "WIK MIFI 10 GB 30D" },
+            { value: 350.0, idProducto: "13381", descripcion: "WIK MIFI 20 GB 30D" },
+            { value: 450.0, idProducto: "13384", descripcion: "WIK MIFI 30 GB 30D" },
+            { value: 550.0, idProducto: "17666", descripcion: "WIK MIFI 50 GB 30D" },
           ],
         },
       ],
@@ -1496,22 +1232,12 @@ const HacerRecarga = () => {
           name: "Celular",
           idServicio: "1490",
           amounts: [
-            { value: 59.0, idProducto: "18257", descripcion: "NEWWW One R+" },
-            { value: 100.0, idProducto: "18259", descripcion: "NEWWW 3GB R+" },
-            { value: 120.0, idProducto: "18260", descripcion: "NEWWW 5GB R+" },
-            {
-              value: 135.0,
-              idProducto: "18258",
-              descripcion: "NEWWW ilimitado R+",
-            },
-            { value: 200.0, idProducto: "18261", descripcion: "NEWWW 15GB R+" },
-            { value: 230.0, idProducto: "18262", descripcion: "NEWWW 40GB R+" },
-            {
-              value: 330.0,
-              idProducto: "18263",
-              descripcion: "NEWWW 40GB HS+",
-            },
-            { value: 525.0, idProducto: "18264", descripcion: "NEWWW 100GB+" },
+            { value: 100.0, idProducto: "10058", descripcion: "NEWWW 2GB R+" },
+            { value: 150.0, idProducto: "10061", descripcion: "NEWWW 4GB R+" },
+            { value: 200.0, idProducto: "10064", descripcion: "NEWWW 12GB R+" },
+            { value: 250.0, idProducto: "10067", descripcion: "NEWWW 24GB R+" },
+            { value: 330.0, idProducto: "10070", descripcion: "NEWWW 35GB R+" },
+            { value: 525.0, idProducto: "10073", descripcion: "NEWWW 50GB R+" },
           ],
         },
       ],
@@ -1703,6 +1429,119 @@ const HacerRecarga = () => {
     }
   };
 
+
+  const handleConfirm2 = async () => {
+    // 🔥 BLOQUEAR INMEDIATAMENTE (ANTES DE CUALQUIER VALIDACIÓN)
+    if (loading) {
+      console.warn('⚠️ Ya hay una transacción en proceso');
+      return;
+    }
+    
+    // 🔥 ACTIVAR LOADING INMEDIATAMENTE
+    setLoading(true);
+    setErrorMessage('');
+
+    try {
+      // Ahora sí, hacer las validaciones
+      if (phoneNumber.length !== 10) {
+        setErrorMessage('El número de teléfono debe tener exactamente 10 dígitos.');
+        setLoading(false); // 🔥 Importante: desactivar si falla validación
+        return;
+      }
+
+      await obtenerSaldo();
+
+      const esActivo = await obtenerSaldo2();
+      if (!esActivo) {
+        setErrorMessage('Tu usuario no está activo');
+        setLoading(false); // 🔥 Desactivar
+        return;
+      }
+
+      if (saldo < amount.value) {
+        setErrorMessage('Saldo insuficiente');
+        setLoading(false); // 🔥 Desactivar
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+
+      const recargaData = {
+        operadora: company,
+        tipo: recargaType.name.toLowerCase(),
+        valor: amount.value,
+        celular: phoneNumber,
+        idServicio: recargaType.idServicio,
+        idProducto: amount.idProducto
+      };
+
+      if (!userVerified && location.lat && location.lng) {
+        recargaData.latitud = location.lat;
+        recargaData.longitud = location.lng;
+      }
+
+      const response = await axios.post(
+        'https://www.recargacreditos.com.mx/api/tiendas/recargas2',
+        recargaData,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 90000
+        }
+      );
+
+      if (response.data.success) {
+        if (response.data.token) {
+          localStorage.setItem('token', response.data.token);
+        }
+        
+        setTransactionSuccess(true);
+        setStep(6);
+        obtenerSaldo();
+      } else {
+        setTransactionSuccess(false);
+        setErrorMessage(response.data.error || 'Error al procesar la recarga');
+        setStep(6);
+      }
+
+    } catch (error) {
+      console.error('Error en la transacción:', error);
+
+      const errorData = error.response?.data;
+
+      if (error.response?.status === 409) {
+        setTransactionSuccess(false);
+        setErrorMessage(errorData?.error || 'Ya existe una transacción en proceso.');
+        setStep(6);
+      } else if (error.response?.status === 504 && errorData?.timeout) {
+        setErrorMessage(
+          errorData.error || 
+          'Verificando tu recarga automáticamente. Consulta tu historial en unos momentos.'
+        );
+        setTransactionSuccess(null);
+        setStep(6);
+      } else if (errorData?.tipo === 'gestopago') {
+        setTransactionSuccess(false);
+        setErrorMessage(errorData.error);
+        setStep(6);
+      } else if (errorData?.tipo === 'backend') {
+        setTransactionSuccess(false);
+        setErrorMessage(errorData.error);
+        setStep(6);
+      } else {
+        setTransactionSuccess(false);
+        setErrorMessage(
+          errorData?.error || 
+          error.message || 
+          'Error durante la transacción'
+        );
+        setStep(6);
+      }
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleConfirm = async () => {
     obtenerSaldo();
     if (phoneNumber.length !== 10) {
@@ -1867,21 +1706,21 @@ const HacerRecarga = () => {
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === "Enter" && step === 4 && phoneNumber.length === 10) {
-        handleConfirm(); // Confirmar recarga al presionar Enter
+      // 🔥 Verificar loading ANTES de ejecutar
+      if (event.key === "Enter" && step === 4 && phoneNumber.length === 10 && !loading) {
+        event.preventDefault();
+        handleConfirm2();
       }
+      
       if (event.key === "Backspace") {
-        // Si estamos en el paso 4 y hay un número en el campo, no hacemos nada (se borra normalmente)
         if (step === 4 && phoneNumber.length > 0) {
           return;
         }
 
-        // Si estamos en el paso 4 y el campo está vacío, retrocedemos
         if (step === 4 && phoneNumber.length === 0) {
           handleBack();
         }
 
-        // Si estamos en cualquier otro paso mayor a 1, retrocedemos
         if (step > 1 && step !== 4) {
           handleBack();
         }
@@ -1893,7 +1732,7 @@ const HacerRecarga = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [step, phoneNumber]);
+  }, [step, phoneNumber, loading]); // 🔥 Agregar loading como dependencia
 
   const confirmaTransaccion = async (
     idDistribuidor,
@@ -2233,13 +2072,15 @@ const HacerRecarga = () => {
                     placeholder="Número de Teléfono"
                     style={{ borderColor: "#0A74DA", textAlign: "center" }}
                     autoFocus
+                    disabled={loading} // 🔥 Deshabilitar durante procesamiento
+
                   />
                   {!loading ? (
                     <Button
                       variant="primary"
                       className="mt-4"
-                      onClick={handleConfirm}
-                      disabled={phoneNumber.length !== 10}
+                      onClick={handleConfirm2}
+                      disabled={phoneNumber.length !== 10 || loading}
                     >
                       Recargar
                     </Button>

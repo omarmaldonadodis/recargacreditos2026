@@ -24,6 +24,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/axiosConfig";
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
+import { isMobile } from "react-device-detect";
+
 
 const ToggleSwitch = ({ id, checked, onChange }) => (
   <label className="switch">
@@ -664,19 +666,52 @@ const handleToggle = async (userId, field) => {
     currentPage * itemsPerPage
   );
 
-const formatTextByChunks = (text, chunkSize = 15) => {
-  if (!text) return;
 
-  let formatted = '';
-  for (let i = 0; i < text.length; i += chunkSize) {
-    const part = text.slice(i, i + chunkSize);
-    const isLast = i + chunkSize >= text.length;
-    formatted += part + (isLast ? '\n' : '-\n');
-  }
+  const formatTextByChunks = (text) => {
+    if (!text) return ;
 
-  return text;
-};
+    const chunkSize = isMobile ? 16 : 40;
 
+    const words = text.split(' ');
+    let lines = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      // 🚨 palabra más larga que el límite → forzar corte
+      if (word.length > chunkSize) {
+        // guardar lo que ya había
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+
+        for (let i = 0; i < word.length; i += chunkSize) {
+          const part = word.slice(i, i + chunkSize);
+          const isLast = i + chunkSize >= word.length;
+          lines.push(part + (isLast ? '' : '-'));
+        }
+        continue;
+      }
+
+      // ¿Cabe la palabra en la línea actual?
+      const testLine = currentLine
+        ? currentLine + ' ' + word
+        : word;
+
+      if (testLine.length <= chunkSize) {
+        currentLine = testLine;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines.join('\n');
+  };
 
   return (
     <Container>

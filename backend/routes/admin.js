@@ -47,7 +47,10 @@ router.get('/vendedores', async (req, res) => {
     const vendedores = await Usuario.findAll({
       where: { rol: {
         [Op.or]: ['vendedor', 'administrador'] // Filtra por los roles "vendedor" o "administrador"
-      }}, // Filtra por el rol "vendedor"
+      },
+      
+                  eliminado: false
+      }, // Filtra por el rol "vendedor"
       attributes: ['id','nombres_apellidos', 'correo'], // Solo selecciona los campos necesarios
     });
 

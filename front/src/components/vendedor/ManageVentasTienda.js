@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Table, InputGroup, FormControl, Row, Col, Dropdown, DropdownButton, Button, Pagination, ButtonGroup } from 'react-bootstrap';
-import DatePicker , { registerLocale }from 'react-datepicker';
+import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import axios from 'axios';
 import ExcelJS from 'exceljs';
@@ -57,13 +57,13 @@ const ManageVentasTienda = () => {
   useEffect(() => {
     fetchRecargas();
   }, [startDate, endDate]);
-  
+
 
   const fetchRecargas = async () => {
     try {
       let url = `https://www.recargacreditos.com.mx/api/admin/recargas/${correo}`;
       const params = new URLSearchParams();
-  
+
       if (startDate && endDate) {
         // Se envían las fechas en formato YYYY-MM-DD y la zona horaria del cliente
         params.append('startDate', startDate.toISOString().split('T')[0]);
@@ -74,19 +74,20 @@ const ManageVentasTienda = () => {
         // Si no se seleccionó fecha, limitar a los últimos 100 movimientos
         params.append('limit', '100');
       }
-  
+
       url += '?' + params.toString();
-  
+
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setNombreTienda(response.data.nombre_tienda);
       setRecargas(response.data.recargas);
-      setWeeklyAverage(parseFloat(response.data.promedioSemanal));    } catch (error) {
+      setWeeklyAverage(parseFloat(response.data.promedioSemanal));
+    } catch (error) {
       console.error('Error al obtener las recargas', error);
     }
   };
-  
+
 
   // Componente personalizado para el header del calendario
   const CustomHeader = ({
@@ -183,60 +184,60 @@ const ManageVentasTienda = () => {
       </div>
     );
   };
-// Función para el cambio de fecha de inicio
-const handleStartDateChange = (date) => {
-  // Cerrar el calendario rápidamente
-  setTimeout(() => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-  }, 1);
+  // Función para el cambio de fecha de inicio
+  const handleStartDateChange = (date) => {
+    // Cerrar el calendario rápidamente
+    setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 1);
 
-  if (date === null) {
-    // Si se borra la fecha, se limpian ambos estados
-    setStartDate(null);
-    setEndDate(null);
-  } else {
-    // Asigna la fecha de inicio normalizada (inicio del día)
-    const newStart = new Date(date);
-    newStart.setHours(0, 0, 0, 0);
-    setStartDate(newStart);
-
-    // Si no se tiene fecha de fin, se asigna la misma fecha con fin del día
-    if (!endDate) {
-      const newEnd = new Date(date);
-      newEnd.setHours(23, 59, 59, 999);
-      setEndDate(newEnd);
-    }
-  }
-};
-
-// Función para el cambio de fecha de fin
-const handleEndDateChange = (date) => {
-  setTimeout(() => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-  }, 1);
-
-  if (date === null) {
-    // Si se borra, se limpian ambos estados
-    setStartDate(null);
-    setEndDate(null);
-  } else {
-    // Asigna la fecha de fin normalizada (fin del día)
-    const newEnd = new Date(date);
-    newEnd.setHours(23, 59, 59, 999);
-    setEndDate(newEnd);
-
-    // Si la fecha de inicio no está definida, asigna la misma fecha con hora de inicio
-    if (!startDate) {
+    if (date === null) {
+      // Si se borra la fecha, se limpian ambos estados
+      setStartDate(null);
+      setEndDate(null);
+    } else {
+      // Asigna la fecha de inicio normalizada (inicio del día)
       const newStart = new Date(date);
       newStart.setHours(0, 0, 0, 0);
       setStartDate(newStart);
+
+      // Si no se tiene fecha de fin, se asigna la misma fecha con fin del día
+      if (!endDate) {
+        const newEnd = new Date(date);
+        newEnd.setHours(23, 59, 59, 999);
+        setEndDate(newEnd);
+      }
     }
-  }
-};
+  };
+
+  // Función para el cambio de fecha de fin
+  const handleEndDateChange = (date) => {
+    setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 1);
+
+    if (date === null) {
+      // Si se borra, se limpian ambos estados
+      setStartDate(null);
+      setEndDate(null);
+    } else {
+      // Asigna la fecha de fin normalizada (fin del día)
+      const newEnd = new Date(date);
+      newEnd.setHours(23, 59, 59, 999);
+      setEndDate(newEnd);
+
+      // Si la fecha de inicio no está definida, asigna la misma fecha con hora de inicio
+      if (!startDate) {
+        const newStart = new Date(date);
+        newStart.setHours(0, 0, 0, 0);
+        setStartDate(newStart);
+      }
+    }
+  };
 
   const handleSearch = (event) => setSearchTerm(event.target.value);
 
@@ -246,7 +247,7 @@ const handleEndDateChange = (date) => {
   };
 
 
-  
+
 
   const handleSort = (column) => {
     const newOrder = sortOrder.order === 'asc' ? 'desc' : 'asc';
@@ -254,8 +255,8 @@ const handleEndDateChange = (date) => {
   };
 
   const filteredRecargas = recargas
-    .filter(recarga => 
-      recarga.celular.includes(searchTerm) && 
+    .filter(recarga =>
+      recarga.celular.includes(searchTerm) &&
       (!startDate || new Date(recarga.fecha) >= startDate) &&
       (!endDate || new Date(recarga.fecha) <= endDate.setHours(23, 59, 59, 999))
     )
@@ -276,17 +277,17 @@ const handleEndDateChange = (date) => {
     calculateTotal(filteredRecargas);
   }, [filteredRecargas]);
 
-    // Función para limitar la entrada de caracteres solo a números y "/"
-    const handleKeyDown = (e) => {
-      const validKeys = ['Backspace', 'Tab', 'ArrowLeft', 'ArrowRight', '/'];
-      const isNumber = /^[0-9]$/.test(e.key);
-  
-      // Si la tecla presionada no es un número, una tecla de navegación válida o "/"
-      if (!isNumber && !validKeys.includes(e.key)) {
-        e.preventDefault(); // Prevenir la entrada de cualquier otro carácter
-      }
-    };
-  
+  // Función para limitar la entrada de caracteres solo a números y "/"
+  const handleKeyDown = (e) => {
+    const validKeys = ['Backspace', 'Tab', 'ArrowLeft', 'ArrowRight', '/'];
+    const isNumber = /^[0-9]$/.test(e.key);
+
+    // Si la tecla presionada no es un número, una tecla de navegación válida o "/"
+    if (!isNumber && !validKeys.includes(e.key)) {
+      e.preventDefault(); // Prevenir la entrada de cualquier otro carácter
+    }
+  };
+
 
   const totalPages = Math.ceil(filteredRecargas.length / pageSize);
   const paginatedRecargas = filteredRecargas.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -296,7 +297,7 @@ const handleEndDateChange = (date) => {
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Recargas');
-    
+
     worksheet.addRow([`Tienda: ${nombreTienda}`]);
     worksheet.getRow(1).font = { bold: true, size: 14 };
 
@@ -325,26 +326,29 @@ const handleEndDateChange = (date) => {
     ];
 
     filteredRecargas.forEach((recarga) => {
-      const horaObj=new Date(recarga.fecha).toLocaleTimeString('es', {
+      const horaObj = new Date(recarga.fecha).toLocaleTimeString('es', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true // quité los segundos para ahorrar espacio
       });
-      const fechaObj=new Date(recarga.fecha).toLocaleDateString('es');
-  
+      const fechaObj = new Date(recarga.fecha).toLocaleDateString('es');
+
       worksheet.addRow({
         fecha: fechaObj,
         hora: horaObj,
         folio: recarga.folio,
         celular: recarga.celular,
-        valor: recarga.valor.toFixed(2),
+        valor: typeof recarga.valor === "number"
+              ? parseFloat(recarga.valor.toFixed(2))
+              : 0,
         operadora: recarga.operadora,
         tipo: recarga.tipo,
       });
+
     });
 
     worksheet.addRow([]);
-    const totalRow = worksheet.addRow(['', '', '', '', '', 'Total de ventas:', totalVentas.toFixed(2)]);
+    const totalRow = worksheet.addRow(['', '', '', '', '', 'Total de ventas:', parseFloat(totalVentas.toFixed(2))]);
     totalRow.getCell(6).alignment = { horizontal: 'right' };
     totalRow.font = { bold: true };
 
@@ -354,111 +358,111 @@ const handleEndDateChange = (date) => {
 
   return (
     <Container>
-      
+
       <Row className="my-4">
-  <Col xs={6} sm={8} md={8}>
-  <h3 className="text-left" style={{ color: "#0A74DA" }}>
+        <Col xs={6} sm={8} md={8}>
+          <h3 className="text-left" style={{ color: "#0A74DA" }}>
             Historial de Recargas
           </h3>
-            </Col>
-  <Col xs={6} sm={4} md={4} className="d-flex justify-content-end align-items-center">
-    <Button variant="success" onClick={exportToExcel}>Exportar a Excel</Button>
-  </Col>
-</Row>
+        </Col>
+        <Col xs={6} sm={4} md={4} className="d-flex justify-content-end align-items-center">
+          <Button variant="success" onClick={exportToExcel}>Exportar a Excel</Button>
+        </Col>
+      </Row>
 
       <Row className="mb-3 align-items-center">
-  <Col xs={12} md={6} >
-    <InputGroup>
-      <FormControl
-        ref={searchInputRef}
-        placeholder="Buscar por celular"
-        onChange={handleSearch}
-        inputMode="numeric"
-        maxLength={10}
+        <Col xs={12} md={6} >
+          <InputGroup>
+            <FormControl
+              ref={searchInputRef}
+              placeholder="Buscar por celular"
+              onChange={handleSearch}
+              inputMode="numeric"
+              maxLength={10}
 
-        onKeyDown={(e) => {
-          if (
-            !/[0-9]/.test(e.key) &&
-            e.key !== "Backspace" &&
-            e.key !== "Delete"
-          ) {
-            e.preventDefault();
-          }
-        }}
-      />
-    </InputGroup>
-  </Col>
+              onKeyDown={(e) => {
+                if (
+                  !/[0-9]/.test(e.key) &&
+                  e.key !== "Backspace" &&
+                  e.key !== "Delete"
+                ) {
+                  e.preventDefault();
+                }
+              }}
+            />
+          </InputGroup>
+        </Col>
 
-  {/* Contenedor para las fechas */}
-  <Col xs={12} md={6} className="d-flex justify-content-center">
-    {/* Primer DatePicker (Fecha de inicio) */}
-    <DatePicker
-      selected={startDate}
-      onChange={(date) => {
-        handleStartDateChange(date);
-        // Inmediatamente quitar el foco después de seleccionar
-        document.activeElement.blur();
-      }}
-      placeholderText="Fecha de inicio"
-      dateFormat="dd/MM/yyyy"
-      maxDate={endDate || new Date()}
-      isClearable
-      className="form-control w-100" 
-      onKeyDown={handleKeyDown}
-      popperPlacement="bottom-start"
-      portalId="root-portal"
-      inputMode="none" // Desactiva el teclado en dispositivos móviles
-      //onFocus={(e) => e.target.blur()} // Evita el teclado pero permite abrir el calendario
+        {/* Contenedor para las fechas */}
+        <Col xs={12} md={6} className="d-flex justify-content-center">
+          {/* Primer DatePicker (Fecha de inicio) */}
+          <DatePicker
+            selected={startDate}
+            onChange={(date) => {
+              handleStartDateChange(date);
+              // Inmediatamente quitar el foco después de seleccionar
+              document.activeElement.blur();
+            }}
+            placeholderText="Fecha de inicio"
+            dateFormat="dd/MM/yyyy"
+            maxDate={endDate || new Date()}
+            isClearable
+            className="form-control w-100"
+            onKeyDown={handleKeyDown}
+            popperPlacement="bottom-start"
+            portalId="root-portal"
+            inputMode="none" // Desactiva el teclado en dispositivos móviles
+            //onFocus={(e) => e.target.blur()} // Evita el teclado pero permite abrir el calendario
 
-      locale="es-custom"
-      renderCustomHeader={CustomHeader}
-      calendarStartDay={1}
-      // Propiedades para prevenir edición
-      // readOnly={true}
-      onFocus={(e) => {
-        e.target.blur(); // Previene el teclado
-      }}
-      onClick={(e) => {
-        e.target.focus(); // Permite abrir el calendario
-      }}
-      
-    />
-    {/* Segundo DatePicker (Fecha de fin) */}
-    <DatePicker
-      selected={endDate}
-      onChange={(date) => {
-        handleEndDateChange(date);
-        // Inmediatamente quitar el foco después de seleccionar
-        document.activeElement.blur();
-      }}
+            locale="es-custom"
+            renderCustomHeader={CustomHeader}
+            calendarStartDay={1}
+            // Propiedades para prevenir edición
+            // readOnly={true}
+            onFocus={(e) => {
+              e.target.blur(); // Previene el teclado
+            }}
+            onClick={(e) => {
+              e.target.focus(); // Permite abrir el calendario
+            }}
+
+          />
+          {/* Segundo DatePicker (Fecha de fin) */}
+          <DatePicker
+            selected={endDate}
+            onChange={(date) => {
+              handleEndDateChange(date);
+              // Inmediatamente quitar el foco después de seleccionar
+              document.activeElement.blur();
+            }}
             placeholderText="Fecha de fin"
-      dateFormat="dd/MM/yyyy"
-      minDate={startDate}
-      maxDate={new Date()}
-      isClearable
-      className="form-control w-100" 
-      onKeyDown={handleKeyDown}
-      inputReadOnly
-      popperPlacement="bottom-end"
-      portalId="root-portal"
-      inputMode="none" // Desactiva el teclado en dispositivos móviles
-      //onFocus={(e) => e.target.blur()} // Evita el teclado pero permite abrir el calendario
+            dateFormat="dd/MM/yyyy"
+            minDate={startDate}
+            maxDate={new Date()}
+            isClearable
+            className="form-control w-100"
+            onKeyDown={handleKeyDown}
+            inputReadOnly
+            popperPlacement="bottom-end"
+            portalId="root-portal"
+            inputMode="none" // Desactiva el teclado en dispositivos móviles
+            //onFocus={(e) => e.target.blur()} // Evita el teclado pero permite abrir el calendario
 
-      locale="es-custom"
-      renderCustomHeader={CustomHeader}
-      calendarStartDay={1}
-      // Propiedades para prevenir edición
-      // readOnly={true}
-      onFocus={(e) => {
-        e.target.blur(); // Previene el teclado
-      }}
-      onClick={(e) => {
-        e.target.focus(); // Permite abrir el calendario
-      }}
+            locale="es-custom"
+            renderCustomHeader={CustomHeader}
+            calendarStartDay={1}
+            // Propiedades para prevenir edición
+            // readOnly={true}
+            onFocus={(e) => {
+              e.target.blur(); // Previene el teclado
+            }}
+            onClick={(e) => {
+              e.target.focus(); // Permite abrir el calendario
+            }}
 
-    />
-  </Col>
-</Row> 
+          />
+        </Col>
+      </Row>
 
       <Row className="my-4 d-block d-md-none">
         <Col className="d-flex justify-content-center">
@@ -510,13 +514,13 @@ const handleEndDateChange = (date) => {
             <tr key={index}>
               <td>{new Date(recarga.fecha).toLocaleDateString()}</td>
               <td>
-  {new Date(recarga.fecha).toLocaleTimeString('es', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  })}
-</td>               <td>{recarga.folio}</td>
+                {new Date(recarga.fecha).toLocaleTimeString('es', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true
+                })}
+              </td>               <td>{recarga.folio}</td>
               <td>{recarga.celular}</td>
               <td>{recarga.valor.toFixed(2)}</td>
               <td>{recarga.operadora}</td>
@@ -526,54 +530,54 @@ const handleEndDateChange = (date) => {
         </tbody>
       </Table>
       <div className="d-md-none">
-  {paginatedRecargas.map((recarga, index) => (
-    <div key={index} className="recarga-info-container">
-      <div className="recarga-info">
-        <div>
-          <strong>Fecha</strong>
-          {new Date(recarga.fecha).toLocaleDateString()}
-        </div>
-        <div>
-          <strong>Hora</strong>
-          {new Date(recarga.fecha).toLocaleTimeString('es', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true // quité los segundos para ahorrar espacio
-          })}
-        </div>
-        <div>
-          <strong>Folio</strong>
-          {recarga.folio}
-        </div>
-      </div>
-      <div className="recarga-info">
-        <div>
-          <strong>Número</strong>
-          {recarga.celular}
-        </div>
-        <div>
-          <strong>Monto</strong>
-          ${recarga.valor.toFixed(2)}
-        </div>
-        <div>
-          <strong>Compañía</strong>
-          {recarga.operadora}
-        </div>
-      </div>
-      <div className="recarga-info">
-        <div>
-          <strong>Clase</strong>
-          {recarga.tipo.charAt(0).toUpperCase() + recarga.tipo.slice(1)}
-        </div>
-        <div>
-        </div>
-        <div>
-        </div>
+        {paginatedRecargas.map((recarga, index) => (
+          <div key={index} className="recarga-info-container">
+            <div className="recarga-info">
+              <div>
+                <strong>Fecha</strong>
+                {new Date(recarga.fecha).toLocaleDateString()}
+              </div>
+              <div>
+                <strong>Hora</strong>
+                {new Date(recarga.fecha).toLocaleTimeString('es', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true // quité los segundos para ahorrar espacio
+                })}
+              </div>
+              <div>
+                <strong>Folio</strong>
+                {recarga.folio}
+              </div>
+            </div>
+            <div className="recarga-info">
+              <div>
+                <strong>Número</strong>
+                {recarga.celular}
+              </div>
+              <div>
+                <strong>Monto</strong>
+                ${recarga.valor.toFixed(2)}
+              </div>
+              <div>
+                <strong>Compañía</strong>
+                {recarga.operadora}
+              </div>
+            </div>
+            <div className="recarga-info">
+              <div>
+                <strong>Clase</strong>
+                {recarga.tipo.charAt(0).toUpperCase() + recarga.tipo.slice(1)}
+              </div>
+              <div>
+              </div>
+              <div>
+              </div>
 
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
-  ))}
-</div>
       <Pagination className="justify-content-center">
         <ButtonGroup>
           {Array.from({ length: totalPages }, (_, index) => (
@@ -593,7 +597,7 @@ const handleEndDateChange = (date) => {
       </div>
 
       <div className="mt-4 text-center">
-      <strong>Promedio de Ventas Semanal:</strong> ${typeof weeklyAverage === 'number' ? weeklyAverage.toFixed(2) : weeklyAverage}      </div>
+        <strong>Promedio de Ventas Semanal:</strong> ${typeof weeklyAverage === 'number' ? weeklyAverage.toFixed(2) : weeklyAverage}      </div>
 
       <style>{`
               /* Corrección: Atenuar días fuera del mes (se mantienen clicables para cambiar la vista) */

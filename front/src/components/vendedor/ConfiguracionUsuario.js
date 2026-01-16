@@ -90,46 +90,7 @@ const ConfiguracionUsuario = () => {
     setShowConfirmModal(false); // Cerrar el modal de confirmación
   };
 
-  // Función para manejar el cambio del porcentaje
-  const handlePorcentajeChange = (event) => {
-    const value = event.target.value;
-    setErrorPorcentaje('');
-    setPorcentaje(value);
 
-    // Validar el valor del porcentaje
-    if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 7)) {
-      setErrorPorcentaje('');
-    } else {
-      setErrorPorcentaje('El porcentaje debe estar entre 0 y 7');
-    }
-  };
-
-  // Función para manejar la tecla Enter
-  const handleKeyDown = async () => {
-    if (porcentaje !== '') {
-      const parsedPorcentaje = parseFloat(porcentaje);
-      if (parsedPorcentaje >= 0 && parsedPorcentaje <= 7) {
-        const token = localStorage.getItem('token');
-        try {
-          await api.post(
-            `/admin/actualizar-porcentaje`,
-            { tiendaId: id, porcentaje: parsedPorcentaje },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          setMessage({ type: 'success', text: 'Porcentaje actualizado correctamente.' });
-        } catch (error) {
-          setMessage({ type: 'error', text: 'Error al actualizar el porcentaje.' });
-          console.error('Error al actualizar el porcentaje', error);
-        }
-      } else {
-        setErrorPorcentaje('El porcentaje debe estar entre 0 y 7');
-      }
-    }
-  };
 
   // Función para manejar el cambio del orden geográfico
   const handleSelectOrdenChange = async (event) => {
@@ -293,42 +254,15 @@ const ConfiguracionUsuario = () => {
           <Form.Control type="text"     value={tienda.usuario?.celular?.slice(-10)} // Muestra solo los últimos 10 dígitos
  readOnly />
         </Form.Group>
-        </Form>
 
-
-<Form
-  onSubmit={(e) => {
-    e.preventDefault();
-  }}
->
-    {/* Campo editable para el porcentaje */}
         <Form.Group controlId="formPorcentaje" className="mb-3">
           <Form.Label>Porcentaje</Form.Label>
-          <InputGroup>
-          <Form.Control
-            type="number"
-            step="0.1"
-            min="0"
-            max="7"
-            value={porcentaje}
-            onChange={handlePorcentajeChange}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleKeyDown();
-                e.target.blur();
-              }
-            }}
-
-            isInvalid={errorPorcentaje !== ''}
-          />
-          <Button variant="primary" onClick={handleKeyDown}>
-          <FaArrowRight />
-        </Button>
-          <Form.Control.Feedback type="invalid">{errorPorcentaje}</Form.Control.Feedback>
-          </InputGroup>
+          <Form.Control type="text" value={porcentaje} readOnly />
         </Form.Group>
         </Form>
+
+
+
 
         <Form
   onSubmit={(e) => {
