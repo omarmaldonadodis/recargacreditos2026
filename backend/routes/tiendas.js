@@ -355,6 +355,287 @@ router.get('/recargas', authenticateToken, async (req, res) => {
   }
 });
 
+
+const gestopagoService = require('../services/gestopagoService');
+
+
+router.post('/recargas2', authenticateToken, async (req, res) => {
+  const { latitud, longitud, operadora, tipo, valor, celular, idServicio, idProducto } = req.body;
+
+  try {
+    const usuarioId = req.user.id;
+
+    // ===== BUSCAR USUARIO =====
+    const usuario = await Usuario.findByPk(usuarioId);
+    if (!usuario) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Usuario no encontrado.',
+        tipo: 'backend'
+      });
+    }
+
+    let nuevoToken = null;
+
+    // ===== VERIFICACIÓN PRIMERA VEZ (TODOS LOS ROLES) =====
+    if (!usuario.verificado) {
+      if (!latitud || !longitud) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Debe proporcionar latitud y longitud para verificar la tienda',
+          tipo: 'backend'
+        });
+      }
+
+      const tienda = await Tienda.findOne({ where: { UsuarioId: usuarioId } });
+      if (!tienda) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Tienda no encontrada para este usuario.',
+          tipo: 'backend'
+        });
+      }
+
+      // Verificar usuario (sin importar si es tienda o vendedor)
+      usuario.verificado = true;
+      tienda.latitud = latitud;
+      tienda.longitud = longitud;
+      await usuario.save();
+      await tienda.save();
+
+      // Generar nuevo token con verificado = true
+      const tokenPayload = {
+        id: usuario.id,
+        correo: usuario.correo || "",
+        nombre_tienda: usuario.nombre_tienda,
+        rol: usuario.rol,
+        verificado: usuario.verificado,
+        nombres_apellidos: usuario.nombres_apellidos || "",
+        celular: usuario.celular || ""
+      };
+      nuevoToken = jwt.sign(tokenPayload, process.env.JWT_SECRET);
+    }
+
+    // ===== VALIDACIÓN POST-VERIFICACIÓN =====
+    if (!usuario.verificado) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'El usuario no está verificado',
+        tipo: 'backend'
+      });
+    }
+
+    // ===== VALIDACIÓN USUARIO ACTIVO =====
+    if (!usuario.activo) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'El usuario no está activo',
+        tipo: 'backend'
+      });
+    }
+
+    // ===== BUSCAR TIENDA =====
+    const tienda = await Tienda.findOne({ where: { UsuarioId: usuarioId } });
+    if (!tienda) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Tienda no encontrada para este usuario.',
+        tipo: 'backend'
+      });
+    }
+
+    // ===== VERIFICAR SALDO Y CUPO =====
+    const saldoDisponible = tienda.saldo;
+    const cupoDisponible = tienda.cupo;
+
+    if (saldoDisponible + cupoDisponible < valor) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Saldo insuficiente y el valor supera el cupo disponible para realizar la recarga',
+        tipo: 'backend'
+      });
+    }
+
+    // ===== LLAMAR A GESTOPAGO DESDE EL BACKEND =====
+    try {
+      const respuestaGestopago = await gestopagoService.realizarRecarga({
+        usuarioId,
+        operadora,
+        telefono: celular,
+        idServicio,
+        idProducto,
+        valor
+      });
+
+      // ===== SI GESTOPAGO RESPONDE EXITOSAMENTE =====
+      if (respuestaGestopago.exitoso) {
+        // Descontar saldo DESPUÉS de confirmar con GestoPago
+        tienda.saldo -= valor;
+
+        // Lógica de vendedor (cuando hace recarga como tienda)
+        if (usuario.rol === 'vendedor') {
+          const maxIncremento = tienda.credito - (usuario.valor_recargas || 0);
+          
+          if (valor > maxIncremento) {
+            usuario.valor_recargas = (usuario.valor_recargas || 0) + maxIncremento;
+          } else {
+            usuario.valor_recargas = (usuario.valor_recargas || 0) + valor;
+          }
+          
+          usuario.valor_recargas = Math.min(usuario.valor_recargas, tienda.credito);
+        }
+
+        await tienda.save();
+        await usuario.save();
+
+        // Registrar recarga con el folio de GestoPago
+        await Recarga.create({
+          TiendaId: tienda.id,
+          operadora,
+          tipo,
+          valor,
+          celular,
+          folio: respuestaGestopago.folio
+        });
+
+        // Respuesta exitosa
+        const response = {
+          success: true,
+          mensaje: 'Recarga exitosa',
+          folio: respuestaGestopago.folio,
+          saldo_restante: tienda.saldo,
+          cupo_disponible: tienda.cupo
+        };
+
+        if (nuevoToken) {
+          response.token = nuevoToken;
+        }
+
+        return res.json(response);
+
+      } else {
+        // Error de GestoPago
+        return res.status(400).json({
+          success: false,
+          error: respuestaGestopago.mensaje,
+          codigo: respuestaGestopago.codigo,
+          tipo: 'gestopago'
+        });
+      }
+
+    } catch (errorGestopago) {
+      // ===== MANEJO DE ERROR DUPLICADO =====
+      if (errorGestopago.codigo === 'DUPLICADO') {
+        return res.status(409).json({
+          success: false,
+          error: 'Ya existe una transacción en proceso para este número. Por favor espera 15 minutos.',
+          tipo: 'backend'
+        });
+      }
+
+      // ===== MANEJO DE TIMEOUT CON VERIFICACIÓN AUTOMÁTICA =====
+      if (errorGestopago.codigo === 'TIMEOUT') {
+        // Guardar datos para verificación posterior
+        const datosVerificacion = {
+          usuarioId,
+          operadora,
+          celular,
+          idServicio,
+          idProducto,
+          valor,
+          tipo,
+          tienda,
+          usuario,
+          nuevoToken
+        };
+
+        // Programar verificación automática en 30 segundos
+        setTimeout(async () => {
+          try {
+            console.log(`[AUTO-VERIFICACIÓN] Verificando recarga ${celular}`);
+            
+            const resultadoConfirmacion = await gestopagoService.confirmarTransaccion({
+              operadora: datosVerificacion.operadora,
+              telefono: datosVerificacion.celular,
+              idServicio: datosVerificacion.idServicio,
+              idProducto: datosVerificacion.idProducto
+            });
+
+            if (resultadoConfirmacion.exitoso) {
+              // Recargar datos actualizados de la BD
+              const usuarioActualizado = await Usuario.findByPk(datosVerificacion.usuarioId);
+              const tiendaActualizada = await Tienda.findOne({ 
+                where: { UsuarioId: datosVerificacion.usuarioId } 
+              });
+
+              // Aplicar lógica de descuento
+              tiendaActualizada.saldo -= datosVerificacion.valor;
+
+              // Aplicar lógica de vendedor
+              if (usuarioActualizado.rol === 'vendedor') {
+                const maxIncremento = tiendaActualizada.credito - (usuarioActualizado.valor_recargas || 0);
+                
+                if (datosVerificacion.valor > maxIncremento) {
+                  usuarioActualizado.valor_recargas = (usuarioActualizado.valor_recargas || 0) + maxIncremento;
+                } else {
+                  usuarioActualizado.valor_recargas = (usuarioActualizado.valor_recargas || 0) + datosVerificacion.valor;
+                }
+                
+                usuarioActualizado.valor_recargas = Math.min(
+                  usuarioActualizado.valor_recargas, 
+                  tiendaActualizada.credito
+                );
+              }
+
+              await tiendaActualizada.save();
+              await usuarioActualizado.save();
+
+              // Registrar recarga
+              await Recarga.create({
+                TiendaId: tiendaActualizada.id,
+                operadora: datosVerificacion.operadora,
+                tipo: datosVerificacion.tipo,
+                valor: datosVerificacion.valor,
+                celular: datosVerificacion.celular,
+                folio: resultadoConfirmacion.folio
+              });
+
+              console.log(`✓ Recarga ${celular} completada automáticamente - Folio: ${resultadoConfirmacion.folio}`);
+            } else {
+              console.log(`✗ Verificación fallida: ${resultadoConfirmacion.mensaje}`);
+            }
+
+          } catch (err) {
+            console.error('Error en verificación automática:', err);
+          }
+        }, 30000);
+
+        return res.status(504).json({
+          success: false,
+          error: 'Tiempo de espera agotado. La recarga está siendo verificada automáticamente. Consulta tu historial en unos momentos.',
+          timeout: true,
+          tipo: 'timeout'
+        });
+      }
+
+      // ===== OTROS ERRORES DE RED =====
+      return res.status(500).json({
+        success: false,
+        error: errorGestopago.mensaje || 'Error de conexión con el servicio de recargas',
+        tipo: 'red'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error general en recarga:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Error interno del servidor',
+      tipo: 'backend'
+    });
+  }
+});
+
 router.post('/recargas', authenticateToken, async (req, res) => {
   const { latitud, longitud, operadora, tipo, valor, celular,folio } = req.body;
 
