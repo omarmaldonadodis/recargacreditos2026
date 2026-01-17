@@ -10,7 +10,10 @@ const Recarga = sequelize.define('Recarga', {
   valor: { type: DataTypes.FLOAT, allowNull: false },
   celular: { type: DataTypes.STRING, allowNull: false },
   fecha: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-  folio: { type: DataTypes.STRING, allowNull: false },
+  folio: { type: DataTypes.STRING, allowNull: true },
+  exitoso: { type: DataTypes.BOOLEAN, defaultValue: true },
+  codigoError: { type: DataTypes.INTEGER, allowNull: true },
+  mensajeError: { type: DataTypes.STRING, allowNull: true },
 });
 
 Recarga.belongsTo(Tienda);
