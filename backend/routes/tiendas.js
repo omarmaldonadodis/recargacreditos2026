@@ -488,14 +488,17 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
         await tienda.save();
         await usuario.save();
 
-        // Registrar recarga con el folio de GestoPago
+        // Registrar recarga exitosa
         await Recarga.create({
           TiendaId: tienda.id,
           operadora,
           tipo,
           valor,
           celular,
-          folio: respuestaGestopago.folio
+          folio: respuestaGestopago.folio,
+          exitoso: true,
+          codigoError: null,
+          mensajeError: null
         });
 
         // Respuesta exitosa
@@ -514,7 +517,20 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
         return res.json(response);
 
       } else {
-        // Error de GestoPago
+        // ===== ERROR DE GESTOPAGO - GUARDAR RECARGA FALLIDA =====
+        await Recarga.create({
+          TiendaId: tienda.id,
+          operadora,
+          tipo,
+          valor,
+          celular,
+          folio: null,
+          exitoso: false,
+          codigoError: respuestaGestopago.codigo,
+          mensajeError: respuestaGestopago.mensaje
+        });
+
+        // Retornar el error de GestoPago al cliente
         return res.status(400).json({
           success: false,
           error: respuestaGestopago.mensaje,
@@ -526,6 +542,19 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
     } catch (errorGestopago) {
       // ===== MANEJO DE ERROR DUPLICADO =====
       if (errorGestopago.codigo === 'DUPLICADO') {
+        // Guardar recarga fallida por duplicado
+        await Recarga.create({
+          TiendaId: tienda.id,
+          operadora,
+          tipo,
+          valor,
+          celular,
+          folio: null,
+          exitoso: false,
+          codigoError: null,
+          mensajeError: 'Transacción duplicada - Ya existe una transacción en proceso para este número'
+        });
+
         return res.status(409).json({
           success: false,
           error: 'Ya existe una transacción en proceso para este número. Por favor espera 15 minutos.',
@@ -535,6 +564,19 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
 
       // ===== MANEJO DE TIMEOUT CON VERIFICACIÓN AUTOMÁTICA =====
       if (errorGestopago.codigo === 'TIMEOUT') {
+        // Guardar recarga fallida por timeout
+        await Recarga.create({
+          TiendaId: tienda.id,
+          operadora,
+          tipo,
+          valor,
+          celular,
+          folio: null,
+          exitoso: false,
+          codigoError: null,
+          mensajeError: 'Tiempo de espera agotado - Verificación pendiente'
+        });
+
         // Guardar datos para verificación posterior
         const datosVerificacion = {
           usuarioId,
@@ -590,18 +632,48 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
               await tiendaActualizada.save();
               await usuarioActualizado.save();
 
-              // Registrar recarga
-              await Recarga.create({
-                TiendaId: tiendaActualizada.id,
-                operadora: datosVerificacion.operadora,
-                tipo: datosVerificacion.tipo,
-                valor: datosVerificacion.valor,
-                celular: datosVerificacion.celular,
-                folio: resultadoConfirmacion.folio
-              });
+              // Actualizar recarga fallida a exitosa
+              await Recarga.update(
+                {
+                  exitoso: true,
+                  folio: resultadoConfirmacion.folio,
+                  mensajeError: null,
+                  codigoError: null
+                },
+                {
+                  where: {
+                    TiendaId: tiendaActualizada.id,
+                    celular: datosVerificacion.celular,
+                    valor: datosVerificacion.valor,
+                    exitoso: false,
+                    mensajeError: 'Tiempo de espera agotado - Verificación pendiente'
+                  },
+                  order: [['createdAt', 'DESC']],
+                  limit: 1
+                }
+              );
 
               console.log(`✓ Recarga ${celular} completada automáticamente - Folio: ${resultadoConfirmacion.folio}`);
             } else {
+              // Actualizar mensaje de error en la recarga fallida
+              await Recarga.update(
+                {
+                  mensajeError: `Verificación fallida: ${resultadoConfirmacion.mensaje}`,
+                  codigoError: resultadoConfirmacion.codigo
+                },
+                {
+                  where: {
+                    TiendaId: tienda.id,
+                    celular: datosVerificacion.celular,
+                    valor: datosVerificacion.valor,
+                    exitoso: false,
+                    mensajeError: 'Tiempo de espera agotado - Verificación pendiente'
+                  },
+                  order: [['createdAt', 'DESC']],
+                  limit: 1
+                }
+              );
+
               console.log(`✗ Verificación fallida: ${resultadoConfirmacion.mensaje}`);
             }
 
@@ -618,7 +690,19 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
         });
       }
 
-      // ===== OTROS ERRORES DE RED =====
+      // ===== OTROS ERRORES DE RED - GUARDAR COMO FALLIDA =====
+      await Recarga.create({
+        TiendaId: tienda.id,
+        operadora,
+        tipo,
+        valor,
+        celular,
+        folio: null,
+        exitoso: false,
+        codigoError: null,
+        mensajeError: errorGestopago.mensaje || 'Error de conexión con el servicio de recargas'
+      });
+
       return res.status(500).json({
         success: false,
         error: errorGestopago.mensaje || 'Error de conexión con el servicio de recargas',
