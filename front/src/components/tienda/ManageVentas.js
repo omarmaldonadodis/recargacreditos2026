@@ -257,13 +257,18 @@ const ManageVentas = () => {
 
   const handleSearch = (event) => setSearchTerm(event.target.value);
 
+
   const calculateTotal = (filteredRecargas) => {
-    const total = filteredRecargas.reduce(
-      (sum, recarga) => sum + recarga.valor,
-      0
-    );
+    const total = filteredRecargas.reduce((sum, recarga) => {
+      if (recarga.exitoso === true && typeof recarga.valor === "number") {
+        return sum + recarga.valor;
+      }
+      return sum;
+    }, 0);
+
     setTotalVentas(total);
   };
+
 
 
   const handleSort = (column) => {
@@ -296,7 +301,18 @@ const ManageVentas = () => {
         return sortOrder.order === "asc"
           ? a.tipo.localeCompare(b.tipo)
           : b.tipo.localeCompare(a.tipo);
-      }
+      } else if (sortOrder.column === "estado") {
+        return sortOrder.order === "asc"
+          ? a.exitoso - b.exitoso
+          : b.exitoso - a.exitoso;
+      } else if (sortOrder.column === "mensaje") {
+      // ✅ NUEVO: Ordenamiento por mensaje manejando valores null
+      const mensajeA = a.mensajeError || ""; // Si es null/undefined, usar string vacío
+      const mensajeB = b.mensajeError || "";
+      return sortOrder.order === "asc"
+        ? mensajeA.localeCompare(mensajeB)
+        : mensajeB.localeCompare(mensajeA);
+    }
       return 0;
     });
 
@@ -340,6 +356,8 @@ const ManageVentas = () => {
       "Cantidad",
       "Compañía",
       "Clase",
+      "Estado",
+      "Mensaje",
     ]);
     worksheet.getRow(4).font = { bold: true }; // Estilo de negrita para las cabeceras
 
@@ -352,6 +370,8 @@ const ManageVentas = () => {
       { key: "valor", width: 10 },
       { key: "operadora", width: 15 },
       { key: "tipo", width: 15 },
+      { key: "estado", width: 15 },
+      { key: "mensaje", width: 20 },
     ];
 
     // Aplicar estilo gráfico a las cabeceras
@@ -391,6 +411,8 @@ const ManageVentas = () => {
               : 0,  
         operadora: recarga.operadora,
         tipo: recarga.tipo,
+        estado: recarga.exitoso ? "Exitosa" : "Fallida",
+        mensaje: recarga.mensajeError,
       });
     });
 
@@ -398,6 +420,8 @@ const ManageVentas = () => {
 
     // Fila de total de ventas
     const totalRow = worksheet.addRow([
+      "",
+      "",
       "",
       "",
       "",
@@ -412,7 +436,7 @@ const ManageVentas = () => {
     // Aplicar autofiltro a las columnas
     worksheet.autoFilter = {
       from: "A4", // Cabeceras están en la fila 4
-      to: "G4", // Hasta la columna G
+      to: "I4", // Hasta la columna G
     };
 
     // Crear y descargar el archivo Excel
@@ -619,6 +643,22 @@ const ManageVentas = () => {
               {sortOrder.column === "tipo" &&
                 (sortOrder.order === "asc" ? "↑" : "↓")}
             </th>
+            <th
+              onClick={() => handleSort("estado")}
+              style={{ cursor: "pointer" }}
+            >
+              Estado{" "}
+              {sortOrder.column === "estado" &&
+                (sortOrder.order === "asc" ? "↑" : "↓")}
+            </th>
+            <th
+              onClick={() => handleSort("mensaje")}
+              style={{ cursor: "pointer" }}
+            >
+              Mensaje{" "}
+              {sortOrder.column === "mensaje" &&
+                (sortOrder.order === "asc" ? "↑" : "↓")}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -638,6 +678,8 @@ const ManageVentas = () => {
               <td>{recarga.valor.toFixed(2)}</td>
               <td>{recarga.operadora}</td>
               <td>{recarga.tipo}</td>
+              <td>{recarga.exitoso ? "Exitosa" : "Fallida"}</td>
+              <td>{recarga.mensajeError}</td>
             </tr>
           ))}
         </tbody>
@@ -682,8 +724,14 @@ const ManageVentas = () => {
                 <strong>Clase</strong>
                 {recarga.tipo.charAt(0).toUpperCase() + recarga.tipo.slice(1)}
               </div>
-              <div></div>
-              <div></div>
+              <div>
+                <strong>Estado</strong>
+                {recarga.exitoso ? "Exitosa" : "Fallida"}
+              </div>
+              <div>
+                <strong>Mensaje</strong>
+                {recarga.mensajeError}
+              </div>
             </div>
           </div>
         ))}

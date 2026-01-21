@@ -53,50 +53,69 @@ const esCustom = {
 registerLocale("es-custom", esCustom);
   
   const formatTextByChunks = (text) => {
-    if (!text) return ;
-
-    const chunkSize = isMobile ? 16 : 40;
-
-    const words = text.split(' ');
-    let lines = [];
-    let currentLine = '';
-
-    for (const word of words) {
-      // 🚨 palabra más larga que el límite → forzar corte
-      if (word.length > chunkSize) {
-        // guardar lo que ya había
-        if (currentLine) {
-          lines.push(currentLine);
-          currentLine = '';
-        }
-
-        for (let i = 0; i < word.length; i += chunkSize) {
-          const part = word.slice(i, i + chunkSize);
-          const isLast = i + chunkSize >= word.length;
-          lines.push(part + (isLast ? '' : '-'));
-        }
-        continue;
-      }
-
-      // ¿Cabe la palabra en la línea actual?
-      const testLine = currentLine
-        ? currentLine + ' ' + word
-        : word;
-
-      if (testLine.length <= chunkSize) {
-        currentLine = testLine;
-      } else {
+  if (!text) return "";
+  
+  const cleanText = String(text).trim();
+  const chunkSize = isMobile ? 16 : 40;
+  
+  // 🔥 NUEVO: Detectar y separar "vendedor" al inicio
+  const vendedorRegex = /^(vendedor)/i;
+  const match = cleanText.match(vendedorRegex);
+  
+  let textToProcess = cleanText;
+  let vendedorPart = null;
+  
+  if (match) {
+    vendedorPart = match[1]; // Preserva mayúsculas originales
+    textToProcess = cleanText.substring(vendedorPart.length).trim();
+  }
+  
+  // Procesar el texto restante (o todo el texto si no hay "vendedor")
+  const words = textToProcess.split(' ');
+  let lines = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    // 🚨 palabra más larga que el límite → forzar corte
+    if (word.length > chunkSize) {
+      // guardar lo que ya había
+      if (currentLine) {
         lines.push(currentLine);
-        currentLine = word;
+        currentLine = '';
       }
+      
+      for (let i = 0; i < word.length; i += chunkSize) {
+        const part = word.slice(i, i + chunkSize);
+        const isLast = i + chunkSize >= word.length;
+        lines.push(part + (isLast ? '' : '-'));
+      }
+      continue;
     }
-
-    if (currentLine) {
+    
+    // ¿Cabe la palabra en la línea actual?
+    const testLine = currentLine
+      ? currentLine + ' ' + word
+      : word;
+      
+    if (testLine.length <= chunkSize) {
+      currentLine = testLine;
+    } else {
       lines.push(currentLine);
+      currentLine = word;
     }
-
-    return lines.join('\n');
-  };
+  }
+  
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  
+  // 🔥 NUEVO: Si había "vendedor", agregarlo al inicio
+  if (vendedorPart) {
+    lines.unshift(vendedorPart); // Agregar "vendedor" como primera línea
+  }
+  
+  return lines.join('\n');
+};
 
 
 
@@ -647,7 +666,7 @@ if (sortConfig.key) {
            "N/A")
         : formatTextByChunks(item.usuario)}
     </td>
-    <td>{Number(item.valor).toFixed(2)}</td>
+    <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
   </>
 )}
 
@@ -715,8 +734,7 @@ if (sortConfig.key) {
             <td>
               {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>            {Number(item.valor).toFixed(2)}
-            </td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
             <td style={{ color: item.tipo === "Deposito" ? "green" : "black" }}>
               {item.tipo === "Deposito"
                 ? ` Depósito de ${item.vendedor?.nombres_apellidos ||
@@ -739,8 +757,7 @@ if (sortConfig.key) {
             <td>
               {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td> {Number(item.valor).toFixed(2)}
-            </td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
             <td style={{ color: item.tipo === "Deposito" ? "green" : "black" }}>
               {item.tipo === "Deposito"
                 ? ` Depósito de ${item.vendedor?.nombres_apellidos ||
@@ -762,8 +779,7 @@ if (sortConfig.key) {
             <td>
               {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>            {Number(item.valor).toFixed(2)}
-            </td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
             <td style={{ color: item.tipo === "Deposito" ? "green" : "black" }}>
               {item.tipo === "Deposito"
                 ? ` Depósito de ${item.vendedor?.nombres_apellidos ||
@@ -789,7 +805,7 @@ if (sortConfig.key) {
             </td>
             <td>{item.folio || ""}</td>
             <td>{item.celular || ""}</td>
-            <td>{item.valor}</td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
             <td>{item.operadora || ""}</td>
             <td>
               {item.tipo
@@ -868,7 +884,7 @@ if (sortConfig.key) {
             </div>
             <div className="mobile-row">
               <div>
-                <strong>Cantidad:</strong> {item.valor}
+                <strong>Cantidad:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>  
               </div>
               <div>
                 <strong>Compañía:</strong> {item.operadora || ""}
@@ -915,7 +931,7 @@ if (sortConfig.key) {
     </div>
     <div className="mobile-row">
       <div>
-        <strong>Cantidad:</strong> {Number(item.valor).toFixed(2)}
+        <strong>Cantidad:</strong><div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>
       </div>
     </div>
   </div>)
@@ -960,7 +976,7 @@ if (sortConfig.key) {
                 <strong>Hora:</strong> {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
               <div>
-                <strong>Cantidad:</strong>             {Number(item.valor).toFixed(2)}
+                <strong>Cantidad:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>
 
               </div>
             </div>
@@ -993,7 +1009,7 @@ if (sortConfig.key) {
                 <strong>Hora:</strong> {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
               <div>
-                <strong>Cantidad:</strong>             {Number(item.valor).toFixed(2)}
+                <strong>Cantidad:</strong>  <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>
 
               </div>
             </div>
@@ -1026,7 +1042,7 @@ if (sortConfig.key) {
                 <strong>Hora:</strong> {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
               <div>
-                <strong>Cantidad:</strong> {Number(item.valor).toFixed(2)}
+                <strong>Cantidad:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>
 
               </div>
             </div>
@@ -1724,6 +1740,9 @@ if (sortConfig.key) {
           )
         )}
       </Pagination>
+      <br />
+      <br />
+      <br />
 
       <style>{`
                     /* Corrección: Atenuar días fuera del mes (se mantienen clicables para cambiar la vista) */

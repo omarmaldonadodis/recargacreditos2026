@@ -213,15 +213,25 @@ router.get('/obtener-tiendas/usuario', authenticateToken, async (req, res) => {
         },
       });
 
+      const recargasExitosas = await Recarga.findAll({
+        where: {
+          TiendaId: tienda.id,
+          fecha: {
+            [Op.between]: [fechaInicioPeriodo, fechaActual]
+          },
+          exitoso: true,
+        },
+      });
+
       // Sumar el total de ventas (valor de recargas) en el período
-      const totalVentas = recargas.reduce((total, recarga) => total + recarga.valor, 0);
+      const totalVentas = recargasExitosas.reduce((total, recarga) => total + recarga.valor, 0);
 
       // Calcular la cantidad de semanas transcurridas en el período
       const diffMs = fechaActual - fechaInicioPeriodo;
       const semanasTranscurridas = diffMs / (7 * 24 * 60 * 60 * 1000);
 
       
-      const promedioSemanal = calcularPromedioSemanal(recargas); // Esta función agrupa por semanas (lunes a domingo) y promedia
+      const promedioSemanal = calcularPromedioSemanal(recargasExitosas); // Esta función agrupa por semanas (lunes a domingo) y promedia
 
       // Agregar el promedio al objeto tienda
       tienda.dataValues.promedioSemanal = promedioSemanal;
@@ -1533,8 +1543,18 @@ router.delete('/eliminar-tienda/:id', authenticateToken, async (req, res) => {
         },
       });
 
+      const recargasExitosas = await Recarga.findAll({
+        where: {
+          TiendaId: tienda.id,
+          fecha: {
+            [Op.between]: [fechaInicioPeriodo, fechaActual]
+          },
+          exitoso: true,
+        },
+      });
+
       // Sumar el total de ventas (valor de recargas) en el período
-      const totalVentas = recargas.reduce((total, recarga) => total + recarga.valor, 0);
+      const totalVentas = recargasExitosas.reduce((total, recarga) => total + recarga.valor, 0);
 
       // Calcular la cantidad de semanas transcurridas en el período
       const diffMs = fechaActual - fechaInicioPeriodo;
@@ -1543,8 +1563,7 @@ router.delete('/eliminar-tienda/:id', authenticateToken, async (req, res) => {
       // Calcular el promedio semanal:
       // - Si la tienda tiene menos de 8 semanas, se divide por las semanas transcurridas
       // - Si tiene 8 semanas o más, se divide el total de ventas entre 8
-      const promedioSemanal = calcularPromedioSemanal(recargas); // Esta función agrupa por semanas (lunes a domingo) y promedia
-
+      const promedioSemanal = calcularPromedioSemanal(recargasExitosas); // Esta función agrupa por semanas (lunes a domingo) y promedia
       // Agregar el promedio al objeto tienda
       tienda.dataValues.promedioSemanal = promedioSemanal;
     }
@@ -1656,9 +1675,16 @@ router.get('/obtener-vendedor', authenticateToken, async (req, res) => {
   
       // Leer parámetros de fecha y límite
       const { startDate, endDate, timeZone, limit } = req.query;
-      let whereClause = { TiendaId: tienda.id };
-      let queryOptions = {
-        where: whereClause,
+      let whereClauseHistorial = { TiendaId: tienda.id };
+      let whereClauseExitoso = { TiendaId: tienda.id, exitoso: true, };
+
+      let queryOptionsHistorial = {
+        where: whereClauseHistorial,
+        order: [['fecha', 'DESC']],
+      };
+
+      let queryOptionsExitoso = {
+        where: whereClauseExitoso,
         order: [['fecha', 'DESC']],
       };
   
@@ -1670,18 +1696,19 @@ router.get('/obtener-vendedor', authenticateToken, async (req, res) => {
         whereClause.fecha = { [Op.between]: [startUTC, endUTC] };
       } else {
         // Si no se envían fechas, se limita la consulta a 100 (o a lo que se indique en limit)
-        queryOptions.limit = limit ? parseInt(limit) : 100;
+        queryOptionsHistorial.limit = limit ? parseInt(limit) : 100;
       }
-  
-      const recargas = await Recarga.findAll(queryOptions);
-      const promedioSemanal = calcularPromedioSemanal(recargas).toFixed(2); // Esta función agrupa por semanas (lunes a domingo) y promedia
+
+      const recargasHistorial = await Recarga.findAll(queryOptionsHistorial);
+      const recargasExitosas = await Recarga.findAll(queryOptionsExitoso);
+      const promedioSemanal = calcularPromedioSemanal(recargasExitosas).toFixed(2); // Esta función agrupa por semanas (lunes a domingo) y promedia
       const saldoDisponible = tienda.saldo;
       const nombre_tienda = usuario.nombre_tienda;
   
       res.json({ 
         saldo_disponible: saldoDisponible, 
         nombre_tienda, 
-        recargas,
+        recargas: recargasHistorial,
         promedioSemanal 
       });
     } catch (error) {
@@ -1746,6 +1773,7 @@ router.get('/comision-semanal', authenticateToken, async (req, res) => {
         fecha: {
           [Op.between]: [startDate, endDate], // Rango de fechas
         },
+        exitoso: true, // Solo recargas exitosas
       },
       attributes: ['valor'], // Solo necesitamos el valor de las recargas
     });
@@ -2219,7 +2247,7 @@ router.get('/historialp/:option', authenticateToken, async (req, res) => {
               ],
             },
           ],
-          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio'],
+          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio', 'exitoso', 'mensajeError'],
           order: [['fecha', 'DESC']],
           limit: limitIfNoDate,
         });
@@ -2237,7 +2265,7 @@ router.get('/historialp/:option', authenticateToken, async (req, res) => {
   
         const recargas = await Recarga.findAll({
           where: { TiendaId: tienda.id, ...dateFilterFecha },
-          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio'],
+          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio', 'exitoso', 'mensajeError'],
           order: [['fecha', 'DESC']],
           limit: limitIfNoDate,
         });
@@ -2265,6 +2293,8 @@ router.get('/historialp/:option', authenticateToken, async (req, res) => {
             tipoRecarga: recarga.tipo,
             celular: recarga.celular,
             folio: recarga.folio,
+            exitoso: recarga.exitoso,
+            mensajeError: recarga.mensajeError
           })),
           ...saldos.map(saldo => ({
             tipoMovimiento: saldo.credito ? 'Pago' : 'Saldo',
@@ -2463,13 +2493,13 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
     ...depositos.map((d) => ({
       tipoMovimiento: 'Deposito',
       fecha: d.fecha,
-      nombre_tienda: null,
+      nombre_tienda: 'Administrador',
       valor: d.valor,
     })),
     ...ventas.map((v) => ({
       tipoMovimiento: 'Venta',
       fecha: v.fecha,
-      nombre_tienda: v.tienda?.usuario?.nombre_tienda || null,
+      nombre_tienda: v.Tienda?.usuario?.nombre_tienda || null,
       valor: v.valor,
     })),
     ...recargas.map((r) => ({
@@ -2648,7 +2678,7 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
               ],
             },
           ],
-          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio'],
+          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio', 'exitoso', 'mensajeError'],
           order: [['fecha', 'DESC']],
           limit: limitIfNoDate,
         });
@@ -2791,7 +2821,9 @@ router.get('/comision-semanal/:vendedorId/', authenticateToken, async (req, res)
         },
         fecha: {
           [Op.between]: [startDate, endDate]  // Recargas de la última semana (lunes a domingo)
-        }
+        },
+        exitoso: true, // Solo recargas exitosas
+
       },
       attributes: ['valor']  // Solo necesitamos el valor de las recargas
     });
@@ -3184,7 +3216,7 @@ router.post('/actualizar-orden', async (req, res) => {
         start = parseDbDate(startDateQuery, true);
         end = parseDbDate(startDateQuery, false);
       } else if (!startDateQuery && endDateQuery) {
-        start = parseDbDate(endDateQuery, true);
+        start = parseDbDate(endDatexQuery, true);
         end = parseDbDate(endDateQuery, false);
       } else if (startDateQuery && endDateQuery) {
         start = parseDbDate(startDateQuery, true);
