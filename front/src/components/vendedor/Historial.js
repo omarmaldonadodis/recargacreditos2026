@@ -392,6 +392,8 @@ const Historial = () => {
             <th onClick={() => handleSort("valor")}>Cantidad</th>
             <th onClick={() => handleSort("operadora")}>Compañía</th>
             <th onClick={() => handleSort("clase")}>Clase</th>
+            <th onClick={() => handleSort("exitoso")}>Estado</th>
+            <th onClick={() => handleSort("mensajeError")}>Mensaje</th>
             <th onClick={() => handleSort("vendedor")}>Tienda</th>
           </>
         );
@@ -423,13 +425,13 @@ const Historial = () => {
             <td>
               {item.createdAt
                 ? new Date(item.createdAt).toLocaleString()
-                : "N/A"}
+                : ""}
             </td>
             <td>
               {item.usuario?.eliminado
                 ? item.updatedAt
                   ? new Date(item.updatedAt).toLocaleString()
-                  : "N/A"
+                  : ""
                 : ""}
             </td>
             <td>{item.usuario?.celular}</td>
@@ -453,12 +455,12 @@ const Historial = () => {
 
         {selectedOption.toLowerCase() === "saldos" && (
           <>
-            <td>{formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| "N/A"}</td>
+            <td>{formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| ""}</td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
             <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>
               {item.valor}
@@ -469,16 +471,16 @@ const Historial = () => {
         {selectedOption.toLowerCase() === "depositos" && (
           <>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>{item.valor}</td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{item.valor}</td>
             <td style={{ color: item.tipo === "Deposito" ? "green" : "black" }}>
               {item.tipo === "Deposito"
                 ? "Depósito"
-                : `Recibido - ${formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| "N/A"}`}
+                : `Recibido - ${formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| ""}`}
             </td>
           </>
         )}
@@ -486,26 +488,32 @@ const Historial = () => {
         {selectedOption.toLowerCase() === "ventas" && (
           <>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>{item.folio || "N/A"}</td>
-            <td>{item.celular || "N/A"}</td>
-            <td>{item.valor}</td>
-            <td>{item.operadora || "N/A"}</td>
+            <td>{item.folio || ""}</td>
+            <td>{item.celular || ""}</td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{item.valor}</td>
+            <td>{item.operadora || ""}</td>
             <td>
               {item.tipo
                 ? item.tipo.charAt(0).toUpperCase() +
                   item.tipo.slice(1).toLowerCase()
-                : "N/A"}
+                : ""}
+            </td>
+            <td>  
+              {item.exitoso ? 'Exitosa' : 'Fallida'}
+            </td>
+              <td>  
+              {item.mensajeError || ''}
             </td>
             <td>
               {item.Tienda?.usuario?.nombres_apellidos ||
                 formatTextByChunks(item.Tienda?.usuario?.nombre_tienda )||
                 item.Tienda?.usuario?.correo ||
-                "N/A"}
+                ""}
             </td>
           </>
         )}
@@ -513,12 +521,12 @@ const Historial = () => {
         {selectedOption.toLowerCase() === "recargas" && (
           <>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>{item.valor}</td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{item.valor}</td>
             <td>
               {item.tipoMovimiento}
               {item.tipoMovimiento === "Recarga" && item.celular && (
@@ -531,6 +539,9 @@ const Historial = () => {
                     .charAt(0)
                     .toUpperCase()}${item.tipoRecarga.slice(1)}`}
                   {` Folio: ${item.folio}`}
+                  <br />
+                  {`Estado: ${item.exitoso ? 'Exitosa ' : 'Fallida '}`}
+                  {`Mensaje: ${item.mensajeError || ""}`}
                 </div>
               )}
             </td>
@@ -605,7 +616,7 @@ const Historial = () => {
                 <strong>Fecha Creación:</strong>{" "}
                 {item.createdAt
                   ? new Date(item.createdAt).toLocaleString()
-                  : "N/A"}
+                  : ""}
               </div>
             </div>
             <div className="mobile-row">
@@ -620,7 +631,7 @@ const Historial = () => {
                 </a>
               </div>
               <div>
-              <strong>Promedio Semanal:</strong> {item.promedioSemanal != null ? item.promedioSemanal.toFixed(2) : "N/A"}
+              <strong>Promedio Semanal:</strong> {item.promedioSemanal != null ? item.promedioSemanal.toFixed(2) : ""}
 
               </div>
             </div>
@@ -630,7 +641,7 @@ const Historial = () => {
                   <strong>Fecha De Eliminación:</strong>{" "}
                   {item.updatedAt
                     ? new Date(item.updatedAt).toLocaleString()
-                    : "N/A"}
+                    : ""}
                 </div>
               )}
             </div>
@@ -642,17 +653,17 @@ const Historial = () => {
             <div className="mobile-row">
               <div>
                 <strong>Tienda:</strong>{" "}
-                {formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || "N/A"}
+                {formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || ""}
               </div>
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
                 <strong>Hora:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
               <div>
                 <strong>Cantidad:</strong>
@@ -669,16 +680,16 @@ const Historial = () => {
             <div className="mobile-row">
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
               </div>
               <div>
                 <strong>Hora:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
-                <strong>Cantidad:</strong> {item.valor}
+                <strong>Cantidad:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{item.valor}</div>
               </div>
               <div>
                 <strong>Tipo:</strong>{" "}
@@ -690,7 +701,7 @@ const Historial = () => {
                   {item.tipo === "Deposito"
                     ? "Depósito"
                     : `Recibido - ${
-                        formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || "N/A"
+                        formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || ""
                       }`}
                 </div>
               </div>
@@ -703,39 +714,47 @@ const Historial = () => {
             <div className="mobile-row">
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
                 <br />
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
               <div>
-                <strong>Folio:</strong> {item.folio || "N/A"}
+                <strong>Folio:</strong> {item.folio || ""}
               </div>
               <div>
-                <strong>Número:</strong> {item.celular || "N/A"}
+                <strong>Número:</strong> {item.celular || ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
-                <strong>Cantidad:</strong> {item.valor}
+                <strong>Cantidad:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{item.valor}</div>
               </div>
               <div>
-                <strong>Compañía:</strong> {item.operadora || "N/A"}
+                <strong>Compañía:</strong> {item.operadora || ""}
               </div>
               <div>
                 <strong>Clase:</strong>{" "}
                 {item.tipo
                   ? item.tipo.charAt(0).toUpperCase() +
                     item.tipo.slice(1).toLowerCase()
-                  : "N/A"}
+                  : ""}
               </div>
             </div>
             <div className="mobile-row">
+              <div>
+                <strong>Estado:</strong>{" "}
+                {item.exitoso ? 'Exitosa' : 'Fallida'}
+              </div>
+              <div>
+                <strong>Mensaje:</strong>{" "}
+                {item.mensajeError || ""}
+              </div>
               <div>
                 <strong>Tienda:</strong>{" "}
                 {formatTextByChunks(item.Tienda?.usuario?.nombres_apellidos) ||
                   formatTextByChunks(item.Tienda?.usuario?.nombre_tienda) ||
                   formatTextByChunks(item.Tienda?.usuario?.correo) ||
-                  "N/A"}
+                  ""}
               </div>
             </div>
           </div>
@@ -746,16 +765,16 @@ const Historial = () => {
             <div className="mobile-row">
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
               </div>
               <div>
                 <strong>Hora:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
-                <strong>Valor:</strong> {item.valor}
+                <strong>Valor:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{item.valor}</div>
               </div>
               <div>
                 <strong>Movimiento:</strong> {item.tipoMovimiento}
@@ -782,6 +801,20 @@ const Historial = () => {
                   <strong>Folio:</strong> {item.folio}
                 </div>
               </div>
+            )}
+            {item.tipoMovimiento === "Recarga" && item.celular && (
+                
+                <div className="mobile-row">
+
+                <div>
+                   <strong> Estado:</strong> {item.exitoso ? 'Exitosa' : 'Fallida'}
+                </div>
+                                <div>
+                    <strong> Mensaje:</strong> {item.mensajeError || ""} 
+              </div>
+                            </div>
+
+          
             )}
           </div>
         );
@@ -947,6 +980,8 @@ const Historial = () => {
             { header: "Cantidad", key: "cantidad", width: 15 },
             { header: "Compañía", key: "compania", width: 20 },
             { header: "Clase", key: "clase", width: 15 },
+            { header: "Estado", key: "estado", width: 15 },
+            { header: "Mensaje", key: "mensaje", width: 30 },
             { header: "Vendedor", key: "vendedor", width: 25 },
           ];
         case "recargas":
@@ -959,6 +994,8 @@ const Historial = () => {
             { header: "Operadora", key: "operadora", width: 15 },
             { header: "Tipo recarga", key: "tipor", width: 15 },
             { header: "Folio", key: "folio", width: 15 },
+            { header: "Exitoso", key: "exitoso", width: 10 },
+            { header: "Mensaje", key: "mensaje", width: 30 },
           ];
         default:
           return [];
@@ -1020,33 +1057,33 @@ const Historial = () => {
       switch (internalOption) {
         case "aperturas":
           rowData = {
-            nombre: item.usuario?.nombre_tienda || "N/A",
+            nombre: item.usuario?.nombre_tienda || "",
             createdAt: item.createdAt
               ? new Date(item.createdAt).toLocaleString()
-              : "N/A",
+              : "",
             updatedAt: item.usuario?.eliminado
               ? item.updatedAt
                 ? new Date(item.updatedAt).toLocaleString()
-                : "N/A"
+                : ""
               : "",
-            celular: item.usuario?.celular.slice(-10) || "N/A",
+            celular: item.usuario?.celular.slice(-10) || "",
             ubicacion:
               item.latitud && item.longitud
                 ? `${item.latitud}, ${item.longitud}`
-                : "N/A",
+                : "",
              promedioSemanal: typeof item.promedioSemanal === "number"
               ? parseFloat(item.promedioSemanal.toFixed(2))
               : 0,          };
           break;
         case "saldos":
           rowData = {
-            tienda: item.tienda?.usuario?.nombre_tienda || "N/A",
+            tienda: item.tienda?.usuario?.nombre_tienda || "",
             fecha: item.fecha
               ? new Date(item.fecha).toLocaleDateString()
-              : "N/A",
+              : "",
             hora: item.fecha
               ? new Date(item.fecha).toLocaleTimeString()
-              : "N/A",
+              : "",
             valor: typeof item.valor === "number"
               ? parseFloat(item.valor.toFixed(2))
               : 0,
@@ -1056,17 +1093,17 @@ const Historial = () => {
           rowData = {
             fecha: item.fecha
               ? new Date(item.fecha).toLocaleDateString()
-              : "N/A",
+              : "",
             hora: item.fecha
               ? new Date(item.fecha).toLocaleTimeString()
-              : "N/A",
+              : "",
             valor: typeof item.valor === "number"
               ? parseFloat(item.valor.toFixed(2))
               : 0,
             tipo:
               item.tipo === "Deposito"
                 ? "Depósito"
-                : `Recibido - ${item.tienda?.usuario?.nombre_tienda || "N/A"}`,
+                : `Recibido - ${item.tienda?.usuario?.nombre_tienda || ""}`,
           };
           break;
         case "ventas":
@@ -1082,22 +1119,24 @@ const Historial = () => {
             clase: item.tipo
               ? item.tipo.charAt(0).toUpperCase() +
                 item.tipo.slice(1).toLowerCase()
-              : "N/A",
+              : "",
+            estado: item.exitoso ? "Exitosa" : "Fallida",
+            mensaje: item.mensajeError || "",
             vendedor:
               item.Tienda?.usuario?.nombres_apellidos ||
               item.Tienda?.usuario?.nombre_tienda ||
               item.Tienda?.usuario?.correo ||
-              "N/A",
+              "",
           };
           break;
         case "recargas":
           rowData = {
             fecha: item.fecha
               ? new Date(item.fecha).toLocaleDateString()
-              : "N/A",
+              : "",
             hora: item.fecha
               ? new Date(item.fecha).toLocaleTimeString()
-              : "N/A",
+              : "",
             valor: typeof item.valor === "number"
               ? parseFloat(item.valor.toFixed(2))
               : 0,
@@ -1109,6 +1148,8 @@ const Historial = () => {
                 item.tipoRecarga.slice(1)
               : "",
             folio: item?.folio || "",
+            exitoso: item.tipoMovimiento === "Recarga" ? (item.exitoso ? "Sí" : "No") : "",
+            mensaje: item.mensajeError || "",
           };
           break;
         default:

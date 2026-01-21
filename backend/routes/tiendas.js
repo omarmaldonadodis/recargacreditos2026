@@ -217,6 +217,7 @@ router.get('/solo-credito', authenticateToken, async (req, res) => {
         fecha: {
           [Op.between]: [fechaInicioPeriodo, fechaActual],
         },
+        exitoso: true,
       },
     });
 
@@ -225,7 +226,8 @@ router.get('/solo-credito', authenticateToken, async (req, res) => {
 
     res.json({
       credito,
-      promedioSemanal
+      promedioSemanal,
+      recargas
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -306,7 +308,9 @@ router.get('/recargas', authenticateToken, async (req, res) => {
     const { startDate: startDateQuery, endDate: endDateQuery, timeZone, limit } = req.query;
 
     // Declarar la variable donde se almacenarán las recargas filtradas
-    let recargas = [];
+    let recargasExitosas = [];
+    let recargasHistorial = [];
+
 
     // Si se envían ambos parámetros de fecha, filtrar las recargas en ese rango
     if (startDateQuery && endDateQuery) {
@@ -315,7 +319,7 @@ router.get('/recargas', authenticateToken, async (req, res) => {
       const startUTC = parseDbDate(startDateQuery, true, tz);
       const endUTC = parseDbDate(endDateQuery, false, tz);
 
-      recargas = await Recarga.findAll({
+      recargasHistorial = await Recarga.findAll({
         where: {
           TiendaId: tienda.id,
           fecha: { [Op.between]: [startUTC, endUTC] }
@@ -324,21 +328,37 @@ router.get('/recargas', authenticateToken, async (req, res) => {
         // Si se desea limitar la cantidad cuando se usan fechas
         ...(limit ? { limit: parseInt(limit) } : {})
       });
+
+      recargasExitosas = await Recarga.findAll({
+        where: {
+          TiendaId: tienda.id,
+          fecha: { [Op.between]: [startUTC, endUTC] },
+          exitoso: true
+        },
+        order: [['fecha', 'DESC']],
+        // Si se desea limitar la cantidad cuando se usan fechas
+        ...(limit ? { limit: parseInt(limit) } : {})
+      });
     } else {
       // Si no se envían fechas, se obtienen todas las recargas de la tienda
-      recargas = await Recarga.findAll({
+      recargasHistorial = await Recarga.findAll({
         where: { TiendaId: tienda.id },
+        order: [['fecha', 'DESC']]
+      });
+
+      recargasExitosas = await Recarga.findAll({
+        where: { TiendaId: tienda.id, exitoso: true },
         order: [['fecha', 'DESC']]
       });
     }
 
     // Calcular la sumatoria total de las recargas obtenidas
-    const totalRecargas = recargas.reduce((total, recarga) => total + recarga.valor, 0);
+    const totalRecargas = recargasExitosas.reduce((total, recarga) => total + recarga.valor, 0);
 
     // Calcular el promedio semanal
     // Si se recibieron fechas desde el query, puede tener sentido calcularlo con los datos filtrados.
     // En este ejemplo se usa la función calcularPromedioSemanal sobre el conjunto recargas filtrado.
-    const promedioSemanal = parseFloat(calcularPromedioSemanal(recargas).toFixed(2));
+    const promedioSemanal = parseFloat(calcularPromedioSemanal(recargasExitosas).toFixed(2));
 
     // Se obtiene el saldo de la tienda
     const saldoDisponible = tienda.saldo;
@@ -348,7 +368,7 @@ router.get('/recargas', authenticateToken, async (req, res) => {
       saldo_disponible: saldoDisponible,
       total_recargas: totalRecargas,
       promedio_semanal: promedioSemanal,
-      recargas
+      recargas: recargasHistorial,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -49,52 +49,70 @@ const esCustom = {
   },
 };
 
-  const formatTextByChunks = (text) => {
-    if (!text) return ;
-
-    const chunkSize = isMobile ? 16 : 40;
-
-    const words = text.split(' ');
-    let lines = [];
-    let currentLine = '';
-
-    for (const word of words) {
-      // 🚨 palabra más larga que el límite → forzar corte
-      if (word.length > chunkSize) {
-        // guardar lo que ya había
-        if (currentLine) {
-          lines.push(currentLine);
-          currentLine = '';
-        }
-
-        for (let i = 0; i < word.length; i += chunkSize) {
-          const part = word.slice(i, i + chunkSize);
-          const isLast = i + chunkSize >= word.length;
-          lines.push(part + (isLast ? '' : '-'));
-        }
-        continue;
-      }
-
-      // ¿Cabe la palabra en la línea actual?
-      const testLine = currentLine
-        ? currentLine + ' ' + word
-        : word;
-
-      if (testLine.length <= chunkSize) {
-        currentLine = testLine;
-      } else {
+const formatTextByChunks = (text) => {
+  if (!text) return "";
+  
+  const cleanText = String(text).trim();
+  const chunkSize = isMobile ? 16 : 40;
+  
+  // 🔥 NUEVO: Detectar y separar "vendedor" al inicio
+  const vendedorRegex = /^(vendedor)/i;
+  const match = cleanText.match(vendedorRegex);
+  
+  let textToProcess = cleanText;
+  let vendedorPart = null;
+  
+  if (match) {
+    vendedorPart = match[1]; // Preserva mayúsculas originales
+    textToProcess = cleanText.substring(vendedorPart.length).trim();
+  }
+  
+  // Procesar el texto restante (o todo el texto si no hay "vendedor")
+  const words = textToProcess.split(' ');
+  let lines = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    // 🚨 palabra más larga que el límite → forzar corte
+    if (word.length > chunkSize) {
+      // guardar lo que ya había
+      if (currentLine) {
         lines.push(currentLine);
-        currentLine = word;
+        currentLine = '';
       }
+      
+      for (let i = 0; i < word.length; i += chunkSize) {
+        const part = word.slice(i, i + chunkSize);
+        const isLast = i + chunkSize >= word.length;
+        lines.push(part + (isLast ? '' : '-'));
+      }
+      continue;
     }
-
-    if (currentLine) {
+    
+    // ¿Cabe la palabra en la línea actual?
+    const testLine = currentLine
+      ? currentLine + ' ' + word
+      : word;
+      
+    if (testLine.length <= chunkSize) {
+      currentLine = testLine;
+    } else {
       lines.push(currentLine);
+      currentLine = word;
     }
-
-    return lines.join('\n');
-  };
-
+  }
+  
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  
+  // 🔥 NUEVO: Si había "vendedor", agregarlo al inicio
+  if (vendedorPart) {
+    lines.unshift(vendedorPart); // Agregar "vendedor" como primera línea
+  }
+  
+  return lines.join('\n');
+};
 
 
 registerLocale("es-custom", esCustom);
@@ -493,7 +511,8 @@ const fetchData = async (option) => {
             <th onClick={() => handleSort("operadora")}>Compañía</th>
             <th onClick={() => handleSort("clase")}>Clase</th>
             <th onClick={() => handleSort("vendedor")}>Tienda</th>
-
+            <th onClick={() => handleSort("estado")}>Estado</th>
+            <th onClick={() => handleSort("metodoPago")}>Método Pago</th>
           </>
         );
       case "recargas":
@@ -543,13 +562,13 @@ const fetchData = async (option) => {
             <td>
               {item.createdAt
                 ? new Date(item.createdAt).toLocaleString()
-                : "N/A"}
+                : ""}
             </td>
             <td>
               {item.usuario?.eliminado
                 ? item.updatedAt
                   ? new Date(item.updatedAt).toLocaleString()
-                  : "N/A"
+                  : ""
                 : ""}
             </td>
             <td>{item.usuario?.celular.slice(-10)}</td>
@@ -565,7 +584,7 @@ const fetchData = async (option) => {
             <td>
               {item.promedioSemanal != null
                 ? Number(item.promedioSemanal).toFixed(2)
-                : "N/A"
+                : ""
               }
             </td>
           </>
@@ -573,12 +592,12 @@ const fetchData = async (option) => {
 
         {selectedOption.toLowerCase() === "saldos" && (
           <>
-            <td>{formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || "N/A"}</td>
+            <td>{formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || ""}</td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
             <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>
               {item.valor}
@@ -589,16 +608,16 @@ const fetchData = async (option) => {
         {selectedOption.toLowerCase() === "depositos" && (
           <>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>{item.valor}</td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
             <td style={{ color: item.tipo === "Deposito" ? "green" : "black" }}>
               {item.tipo === "Deposito"
                 ? "Depósito"
-                : `Recibido - ${formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || "N/A"}`}
+                : `Recibido - ${formatTextByChunks(item.tienda?.usuario?.nombre_tienda) || ""}`}
             </td>
           </>
         )}
@@ -606,26 +625,26 @@ const fetchData = async (option) => {
         {selectedOption.toLowerCase() === "ventas" && (
           <>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>{item.folio || "N/A"}</td>
-            <td>{item.celular || "N/A"}</td>
-            <td>{item.valor}</td>
-            <td>{item.operadora || "N/A"}</td>
+            <td>{item.folio || ""}</td>
+            <td>{item.celular || ""}</td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
+            <td>{item.operadora || ""}</td>
             <td>
               {item.tipo
                 ? item.tipo.charAt(0).toUpperCase() +
                 item.tipo.slice(1).toLowerCase()
-                : "N/A"}
+                : ""}
             </td>
             <td>
               {item.Tienda?.usuario?.nombres_apellidos ||
                 formatTextByChunks(item.Tienda?.usuario?.nombre_tienda) ||
                 item.Tienda?.usuario?.correo ||
-                "N/A"}
+                ""}
             </td>
           </>
         )}
@@ -633,12 +652,12 @@ const fetchData = async (option) => {
         {selectedOption.toLowerCase() === "recargas" && (
           <>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
             </td>
             <td>
-              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+              {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
             </td>
-            <td>{item.valor}</td>
+            <td style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</td>
             <td>
               {item.tipoMovimiento}
               {item.tipoMovimiento === "Recarga" && item.celular && (
@@ -676,7 +695,7 @@ const fetchData = async (option) => {
                 <strong>Fecha Creación:</strong>{" "}
                 {item.createdAt
                   ? new Date(item.createdAt).toLocaleString()
-                  : "N/A"}
+                  : ""}
               </div>
             </div>
             <div className="mobile-row">
@@ -691,7 +710,7 @@ const fetchData = async (option) => {
                 </a>
               </div>
               <div>
-              <strong>Promedio Semanal:</strong> {item.promedioSemanal != null ? item.promedioSemanal.toFixed(2) : "N/A"}
+              <strong>Promedio Semanal:</strong> {item.promedioSemanal != null ? item.promedioSemanal.toFixed(2) : ""}
               </div>
             </div>
             <div className="mobile-row">
@@ -700,7 +719,7 @@ const fetchData = async (option) => {
                   <strong>Fecha De Eliminación:</strong>{" "}
                   {item.updatedAt
                     ? new Date(item.updatedAt).toLocaleString()
-                    : "N/A"}
+                    : ""}
                 </div>
               )}
             </div>
@@ -712,17 +731,17 @@ const fetchData = async (option) => {
             <div className="mobile-row">
               <div>
                 <strong>Tienda:</strong>{" "}
-                {formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| "N/A"}
+                {formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| ""}
               </div>
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
                 <strong>Hora:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
               <div>
 
@@ -774,16 +793,16 @@ const fetchData = async (option) => {
             <div className="mobile-row">
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
               </div>
               <div>
                 <strong>Hora:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
-                <strong>Cantidad:</strong> {item.valor}
+                <strong>Cantidad:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>
               </div>
               <div>
 
@@ -792,7 +811,7 @@ const fetchData = async (option) => {
 
                   {item.tipo === "Deposito"
                     ? "Depósito"
-                    : `Recibido - ${formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| "N/A"}`}
+                    : `Recibido - ${formatTextByChunks(item.tienda?.usuario?.nombre_tienda )|| ""}`}
                 </div>
               </div>
 
@@ -805,30 +824,30 @@ const fetchData = async (option) => {
             <div className="mobile-row">
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
                 <br />
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
               <div>
-                <strong>Folio:</strong> {item.folio || "N/A"}
+                <strong>Folio:</strong> {item.folio || ""}
               </div>
               <div>
-                <strong>Número:</strong> {item.celular || "N/A"}
+                <strong>Número:</strong> {item.celular || ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
-                <strong>Cantidad:</strong> {item.valor}
+                <strong>Cantidad:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>
               </div>
               <div>
-                <strong>Compañía:</strong> {item.operadora || "N/A"}
+                <strong>Compañía:</strong> {item.operadora || ""}
               </div>
               <div>
                 <strong>Clase:</strong>{" "}
                 {item.tipo
                   ? item.tipo.charAt(0).toUpperCase() +
                   item.tipo.slice(1).toLowerCase()
-                  : "N/A"}
+                  : ""}
               </div>
             </div>
             <div className="mobile-row">
@@ -837,7 +856,7 @@ const fetchData = async (option) => {
                 {item.Tienda?.usuario?.nombres_apellidos ||
                   formatTextByChunks(item.Tienda?.usuario?.nombre_tienda) ||
                   item.Tienda?.usuario?.correo ||
-                  "N/A"}
+                  ""}
               </div>
             </div>
           </div>
@@ -848,16 +867,16 @@ const fetchData = async (option) => {
             <div className="mobile-row">
               <div>
                 <strong>Fecha:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleDateString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}
               </div>
               <div>
                 <strong>Hora:</strong>{" "}
-                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : "N/A"}
+                {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
               </div>
             </div>
             <div className="mobile-row">
               <div>
-                <strong>Valor:</strong> {item.valor}
+                <strong>Valor:</strong> <div style={{ color: item.valor < 0 ? "lightcoral" : "black" }}>{Number(item.valor).toFixed(2)}</div>
               </div>
               <div>
                 <strong>Movimiento:</strong> {item.tipoMovimiento}
@@ -959,7 +978,7 @@ const fetchData = async (option) => {
   };
 
 const formatDateGTM6 = (dateString) => {
-  if (!dateString) return "N/A";
+  if (!dateString) return "";
   return new Intl.DateTimeFormat("es-MX", {
     timeZone: "America/Mexico_City",
     year: "numeric",
@@ -1132,16 +1151,16 @@ const formatDateGTM6 = (dateString) => {
           break;
         case "aperturas":
           rowData = {
-            nombre: item.usuario?.nombre_tienda || "N/A",
+            nombre: item.usuario?.nombre_tienda || "",
             createdAt: formatDateGTM6(item.createdAt),
             updatedAt: item.usuario?.eliminado
               ? formatDateGTM6(item.updatedAt) 
               : "",
-            celular: item.usuario?.celular.slice(-10) || "N/A",
+            celular: item.usuario?.celular.slice(-10) || "",
             ubicacion:
               item.latitud && item.longitud
                 ? `${item.latitud}, ${item.longitud}`
-                : "N/A",
+                : "",
             promedioSemanal: typeof item.promedioSemanal === "number"
               ? parseFloat(item.promedioSemanal.toFixed(2))
               : 0,
@@ -1149,7 +1168,7 @@ const formatDateGTM6 = (dateString) => {
           break;
         case "saldos":
           rowData = {
-            tienda: item.tienda?.usuario?.nombre_tienda || "N/A",
+            tienda: item.tienda?.usuario?.nombre_tienda || "",
             fecha: formatDateGTM6(item.fecha).split(",")[0],
             hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
             valor: typeof item.valor === "number"
@@ -1167,7 +1186,7 @@ const formatDateGTM6 = (dateString) => {
             tipo:
               item.tipo === "Deposito"
                 ? "Depósito"
-                : `Recibido - ${item.tienda?.usuario?.nombre_tienda || "N/A"}`,
+                : `Recibido - ${item.tienda?.usuario?.nombre_tienda || ""}`,
           };
           break;
         case "ventas":
@@ -1182,12 +1201,12 @@ const formatDateGTM6 = (dateString) => {
             clase: item.tipo
               ? item.tipo.charAt(0).toUpperCase() +
               item.tipo.slice(1).toLowerCase()
-              : "N/A",
+              : "",
             vendedor:
               item.Tienda?.usuario?.nombres_apellidos ||
               item.Tienda?.usuario?.nombre_tienda ||
               item.Tienda?.usuario?.correo ||
-              "N/A",
+              "",
           };
           break;
         case "recargas":
@@ -1426,6 +1445,10 @@ const formatDateGTM6 = (dateString) => {
           </Col>
         </Row>
       )}
+
+      <br />
+      <br />
+      <br />
 
 
 

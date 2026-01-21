@@ -242,9 +242,16 @@ const ManageVentasTienda = () => {
   const handleSearch = (event) => setSearchTerm(event.target.value);
 
   const calculateTotal = (filteredRecargas) => {
-    const total = filteredRecargas.reduce((sum, recarga) => sum + recarga.valor, 0);
+    const total = filteredRecargas.reduce((sum, recarga) => {
+      if (recarga.exitoso === true && typeof recarga.valor === "number") {
+        return sum + recarga.valor;
+      }
+      return sum;
+    }, 0);
+
     setTotalVentas(total);
   };
+
 
 
 
@@ -269,6 +276,17 @@ const ManageVentasTienda = () => {
         return sortOrder.order === 'asc' ? a.valor - b.valor : b.valor - a.valor;
       } else if (sortOrder.column === 'tipo') {
         return sortOrder.order === 'asc' ? a.tipo.localeCompare(b.tipo) : b.tipo.localeCompare(a.tipo);
+      } else if (sortOrder.column === "estado") {
+        return sortOrder.order === "asc"
+          ? a.exitoso - b.exitoso
+          : b.exitoso - a.exitoso;
+      } else if (sortOrder.column === "mensaje") {
+        // ✅ NUEVO: Ordenamiento por mensaje manejando valores null
+        const mensajeA = a.mensajeError || ""; // Si es null/undefined, usar string vacío
+        const mensajeB = b.mensajeError || "";
+        return sortOrder.order === "asc"
+          ? mensajeA.localeCompare(mensajeB)
+          : mensajeB.localeCompare(mensajeA);
       }
       return 0;
     });
@@ -312,7 +330,7 @@ const ManageVentasTienda = () => {
     worksheet.getRow(2).font = { bold: true };
 
     worksheet.addRow([]);
-    worksheet.addRow(['Fecha', 'Hora', 'Folio', 'Teléfono', 'Monto', 'Compañía', 'Clase']);
+    worksheet.addRow(['Fecha', 'Hora', 'Folio', 'Teléfono', 'Monto', 'Compañía', 'Clase', 'Estado', 'Mensaje' ]);
     worksheet.getRow(4).font = { bold: true };
 
     worksheet.columns = [
@@ -322,7 +340,9 @@ const ManageVentasTienda = () => {
       { key: 'celular', width: 15 },
       { key: 'valor', width: 10 },
       { key: 'operadora', width: 15 },
-      { key: 'tipo', width: 15 }
+      { key: 'tipo', width: 15 },
+      { key: "estado", width: 15 },
+      { key: "mensaje", width: 20 },
     ];
 
     filteredRecargas.forEach((recarga) => {
@@ -343,14 +363,21 @@ const ManageVentasTienda = () => {
               : 0,
         operadora: recarga.operadora,
         tipo: recarga.tipo,
+        estado: recarga.exitoso ? 'Exitoso' : 'Fallido',
+        mensaje: recarga.mensajeError || '',
       });
 
     });
 
     worksheet.addRow([]);
-    const totalRow = worksheet.addRow(['', '', '', '', '', 'Total de ventas:', parseFloat(totalVentas.toFixed(2))]);
-    totalRow.getCell(6).alignment = { horizontal: 'right' };
+    const totalRow = worksheet.addRow(['', '', '', '', '','', '', 'Total de ventas:', parseFloat(totalVentas.toFixed(2))]);
+    totalRow.getCell(8).alignment = { horizontal: 'right' };
     totalRow.font = { bold: true };
+
+    worksheet.autoFilter = {
+      from: "A4", // Cabeceras están en la fila 4
+      to: "I4", // Hasta la columna G
+    };
 
     const buffer = await workbook.xlsx.writeBuffer();
     FileSaver.saveAs(new Blob([buffer]), 'Recargas.xlsx');
@@ -507,6 +534,22 @@ const ManageVentasTienda = () => {
             <th onClick={() => handleSort('tipo')} style={{ cursor: 'pointer' }}>
               Clase {sortOrder.column === 'tipo' && (sortOrder.order === 'asc' ? '↑' : '↓')}
             </th>
+            <th
+              onClick={() => handleSort("estado")}
+              style={{ cursor: "pointer" }}
+            >
+              Estado{" "}
+              {sortOrder.column === "estado" &&
+                (sortOrder.order === "asc" ? "↑" : "↓")}
+            </th>
+            <th
+              onClick={() => handleSort("mensaje")}
+              style={{ cursor: "pointer" }}
+            >
+              Mensaje{" "}
+              {sortOrder.column === "mensaje" &&
+                (sortOrder.order === "asc" ? "↑" : "↓")}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -525,6 +568,8 @@ const ManageVentasTienda = () => {
               <td>{recarga.valor.toFixed(2)}</td>
               <td>{recarga.operadora}</td>
               <td>{recarga.tipo}</td>
+              <td>{recarga.exitoso ? 'Exitoso' : 'Fallido'}</td>
+              <td>{recarga.mensajeError || ''}</td>
             </tr>
           ))}
         </tbody>
@@ -570,8 +615,12 @@ const ManageVentasTienda = () => {
                 {recarga.tipo.charAt(0).toUpperCase() + recarga.tipo.slice(1)}
               </div>
               <div>
+                <strong>Estado</strong>
+                {recarga.exitoso ? "Exitosa" : "Fallida"}
               </div>
               <div>
+                <strong>Mensaje</strong>
+                {recarga.mensajeError}
               </div>
 
             </div>
