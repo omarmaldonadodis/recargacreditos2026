@@ -75,6 +75,11 @@ const ManageUsers = () => {
   const [modalMessage, setModalMessage] = useState(""); // El mensaje que se mostrará en el modal
   const [isProcessing, setIsProcessing] = useState(false);
 
+
+  const [porcentajeTienda, setPorcentajeTienda] = useState('4');
+  const [errorPorcentajeTienda, setErrorPorcentajeTienda] = useState('');
+  const porcentajeInputRef = useRef(null);
+
     const [sortedField, setSortedField] = useState({
     field: null,
     direction: "asc",
@@ -152,6 +157,8 @@ const ManageUsers = () => {
       setNombreTienda("");
       setPhoneNumber("");
       setCountryCode("+52");
+      setPorcentajeTienda("4"); // Agregar esta línea
+      setErrorPorcentajeTienda(""); // Agregar esta línea
       setMessage({ type: "", text: "" });
     }
   }, [showModal]);
@@ -169,6 +176,24 @@ const ManageUsers = () => {
       updateUserState(id, restoredActivo); // Restaurar el estado original
     }
     setSelectedId(null);
+  };
+
+
+  const handlePorcentajeTiendaChange = (e) => {
+    const value = e.target.value;
+    
+    // Permitir vacío, números con hasta un decimal
+    if (value === '' || /^\d*\.?\d{0,1}$/.test(value)) {
+      setPorcentajeTienda(value);
+      
+      // Validar el rango
+      const num = parseFloat(value);
+      if (value !== '' && (num < 0 || num > 7)) {
+        setErrorPorcentajeTienda('El porcentaje debe estar entre 0 y 7');
+      } else {
+        setErrorPorcentajeTienda('');
+      }
+    }
   };
 
   const updateUserState = async (id, activo) => {
@@ -534,6 +559,15 @@ const handleNombreTiendaInput = (e) => {
       return;
     }
 
+    const porcentajeNum = parseFloat(porcentajeTienda);
+    if (porcentajeTienda === '' || isNaN(porcentajeNum) || porcentajeNum < 0 || porcentajeNum > 7) {
+      setMessage({ 
+        type: "error", 
+        text: "El porcentaje debe ser un número entre 0 y 7." 
+      });
+      return;
+    }
+
     if (!latitude || !longitude) {
       setMessage({
         type: "error",
@@ -551,6 +585,7 @@ const handleNombreTiendaInput = (e) => {
           latitud: latitude,
           longitud: longitude,
           contrasenia: contrasenia,
+          porcentaje: porcentajeNum,
         },
         {
           headers: {
@@ -562,6 +597,8 @@ const handleNombreTiendaInput = (e) => {
       setShowModal(false);
       setNombreTienda("");
       setPhoneNumber("");
+      setPorcentajeTienda("4");
+      setErrorPorcentajeTienda("");
       fetchUsers();
     } catch (error) {
       setMessage({ type: "error", text: `${error.response.data.error}` });
@@ -576,6 +613,24 @@ const handleNombreTiendaInput = (e) => {
     const truncatedInput = numbersOnly.slice(0, 10);
     setPhoneNumber(truncatedInput);
   };
+  
+ const handlePhoneKeyDown = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (phoneNumber.length === 10) {
+      porcentajeInputRef.current?.focus();
+    }
+  }
+};
+
+
+const handlePorcentajeKeyDown = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleCreateTienda();
+  }
+};
+  
 
   // Filtro por nombre de tienda
   const filteredUsers = users.filter((user) => {
@@ -1290,16 +1345,38 @@ Ordenar por:
                     placeholder="Ingresa el número de teléfono"
                     value={phoneNumber}
                     onChange={handlePhoneNumberInput}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleCreateTienda();
-                      }
-                    }}
+                    onKeyDown={handlePhoneKeyDown}
+
                     required
                   />
                 </Col>
               </Row>
+            </Form.Group>
+
+                  <br />
+
+            {/* NUEVO CAMPO DE PORCENTAJE */}
+            <Form.Group controlId="formPorcentaje">
+              <Form.Label>Porcentaje</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  ref={porcentajeInputRef}
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="7"
+                  placeholder="Porcentaje"
+                  value={porcentajeTienda}
+                  onChange={handlePorcentajeTiendaChange}
+                  onKeyDown={handlePorcentajeKeyDown}
+                  isInvalid={errorPorcentajeTienda !== ''}
+                  required
+                />
+                <InputGroup.Text>%</InputGroup.Text>
+                <Form.Control.Feedback type="invalid">
+                  {errorPorcentajeTienda}
+                </Form.Control.Feedback>
+              </InputGroup>
             </Form.Group>
           </Form>
         </Modal.Body>
