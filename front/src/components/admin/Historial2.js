@@ -512,7 +512,7 @@ const fetchData = async (option) => {
             <th onClick={() => handleSort("clase")}>Clase</th>
             <th onClick={() => handleSort("vendedor")}>Tienda</th>
             <th onClick={() => handleSort("estado")}>Estado</th>
-            <th onClick={() => handleSort("metodoPago")}>Método Pago</th>
+            <th onClick={() => handleSort("metodoPago")}>Mensaje</th>
           </>
         );
       case "recargas":
@@ -542,7 +542,12 @@ const fetchData = async (option) => {
             <td>  {item.fecha ? new Date(item.fecha).toLocaleDateString() : ""}</td>
             <td>  {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}</td>
 
-            <td>{formatTextByChunks(item.tipoMovimiento )|| ""}</td>
+            <td>{formatTextByChunks(
+              (item.tipoMovimiento === "Recarga" || item.tipoMovimiento === "Venta") && 
+              item.exitoso === false
+                ? `${item.tipoMovimiento} no exitosa`
+                : item.tipoMovimiento
+            ) || ""}</td>
             <td>{formatTextByChunks(item.nombre_tienda )|| ""}</td>
    
 
@@ -646,6 +651,8 @@ const fetchData = async (option) => {
                 item.Tienda?.usuario?.correo ||
                 ""}
             </td>
+            <td>              {item.exitoso ? 'Exitosa' : 'Fallida'}</td>
+            <td>{item.mensajeError || ''}</td>
           </>
         )}
 
@@ -670,6 +677,11 @@ const fetchData = async (option) => {
                     .charAt(0)
                     .toUpperCase()}${item.tipoRecarga.slice(1)}`}
                   {` Folio: ${item.folio}`}
+
+                  <br />
+                  {`Estado: ${item.exitoso ? 'Exitosa ' : 'Fallida '}`}
+                  {`Mensaje: ${item.mensajeError || ""}`}
+
                 </div>
               )}
             </td>
@@ -767,7 +779,15 @@ const fetchData = async (option) => {
               </div>
               <div>
                 <strong>Movimiento:</strong>{" "}
-                {formatTextByChunks(item.tipoMovimiento )|| ""}
+
+                {formatTextByChunks(
+              (item.tipoMovimiento === "Recarga" || item.tipoMovimiento === "Venta") && 
+              item.exitoso === false
+                ? `${item.tipoMovimiento} no exitosa`
+                : item.tipoMovimiento
+            ) || ""}
+
+                
               </div>
        
             </div>
@@ -852,6 +872,14 @@ const fetchData = async (option) => {
             </div>
             <div className="mobile-row">
               <div>
+                <strong>Estado:</strong>{" "}
+                {item.exitoso ? 'Exitosa' : 'Fallida'}
+              </div>
+              <div>
+                <strong>Mensaje:</strong>{" "}
+                {item.mensajeError || ""}
+              </div>
+              <div>
                 <strong>Tienda:</strong>{" "}
                 {item.Tienda?.usuario?.nombres_apellidos ||
                   formatTextByChunks(item.Tienda?.usuario?.nombre_tienda) ||
@@ -901,6 +929,18 @@ const fetchData = async (option) => {
                 </div>
                 <div>
                   <strong>Folio:</strong> {item.folio}
+                </div>
+              </div>
+            )}
+
+            {item.tipoMovimiento === "Recarga" && item.celular && (
+              <div className="mobile-row">
+                <div>
+                  <strong>Estado:</strong>{" "}
+                  {item.exitoso ? 'Exitosa' : 'Fallida'}
+                </div>
+                <div>
+                  <strong>Mensaje:</strong> {item.mensajeError || ""}
                 </div>
               </div>
             )}
@@ -1063,6 +1103,8 @@ const formatDateGTM6 = (dateString) => {
             { header: "Cantidad", key: "cantidad", width: 15 },
             { header: "Compañía", key: "compania", width: 20 },
             { header: "Clase", key: "clase", width: 15 },
+            { header: "Estado", key: "estado", width: 25 }, 
+            { header: "Mensaje", key: "mensaje", width: 30 },
             { header: "Vendedor", key: "vendedor", width: 25 },
           ];
         case "recargas":
@@ -1075,6 +1117,8 @@ const formatDateGTM6 = (dateString) => {
             { header: "Operadora", key: "operadora", width: 15 },
             { header: "Tipo recarga", key: "tipor", width: 15 },
             { header: "Folio", key: "folio", width: 15 },
+            { header: "Estado", key: "estado", width: 15 },
+            { header: "Mensaje", key: "mensaje", width: 30 },
           ];
         default:
           return [];
@@ -1140,7 +1184,11 @@ const formatDateGTM6 = (dateString) => {
             fecha: formatDateGTM6(item.fecha).split(",")[0],
             hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",            createdAt: formatDateGTM6(item.createdAt),
 
-            movimiento: item.tipoMovimiento || "",
+            movimiento: ((item.tipoMovimiento === "Recarga" || item.tipoMovimiento === "Venta") && 
+              item.exitoso === false
+                ? `${item.tipoMovimiento} no exitosa`
+                : item.tipoMovimiento
+            ) || "",
             autor: item.nombre_tienda || "",
             cantidad: typeof item.valor === "number"
               ? parseFloat(item.valor.toFixed(2))
@@ -1202,6 +1250,8 @@ const formatDateGTM6 = (dateString) => {
               ? item.tipo.charAt(0).toUpperCase() +
               item.tipo.slice(1).toLowerCase()
               : "",
+            estado: item.exitoso ? 'Exitosa' : 'Fallida',
+            mensaje: item.mensajeError || '',
             vendedor:
               item.Tienda?.usuario?.nombres_apellidos ||
               item.Tienda?.usuario?.nombre_tienda ||
@@ -1224,6 +1274,12 @@ const formatDateGTM6 = (dateString) => {
               item.tipoRecarga.slice(1)
               : "",
             folio: item?.folio || "",
+            estado: ((item.tipoMovimiento === "Recarga" ) && 
+              item.exitoso === false
+                ? 'Fallida'
+                : (item.tipoMovimiento === "Recarga" ) ? 'Exitosa' : ''
+            ),
+            mensaje: item.mensajeError || '',
           };
           break;
         default:

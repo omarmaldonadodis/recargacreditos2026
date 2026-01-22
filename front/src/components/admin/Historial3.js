@@ -631,8 +631,11 @@ if (sortConfig.key) {
             <th onClick={() => handleSort("valor")}>Cantidad</th>
             <th onClick={() => handleSort("operadora")}>Compañía</th>
             <th onClick={() => handleSort("clase")}>Clase</th>
+             <th onClick={() => handleSort("exitoso")}>Estado</th>
+            <th onClick={() => handleSort("mensajeError")}>Mensaje</th>
+          
             <th onClick={() => handleSort("vendedor")}>Vendedor</th>
-          </>
+           </>
         );
 
       default:
@@ -657,7 +660,12 @@ if (sortConfig.key) {
     <td>
       {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
     </td>
-    <td>{item.titulo}</td>
+            <td>{formatTextByChunks(
+              (item.titulo === "Recarga" || item.titulo === "Venta") && 
+              item.exitoso === false
+                ? `${item.titulo} no exitosa`
+                : item.titulo
+            ) || ""}</td>
     <td>{formatTextByChunks(item.autor)}</td>
     <td>
       {typeof item.usuario === "object"
@@ -813,6 +821,10 @@ if (sortConfig.key) {
                 item.tipo.slice(1).toLowerCase()
                 : ""}
             </td>
+            <td>{item.exitoso ? 'Exitosa ' : 'Fallida '}</td>
+            <td>{item.mensajeError || ""}</td>
+
+
             <td>
               {item.Tienda?.usuario?.nombres_apellidos ||
                formatTextByChunks(item.Tienda?.usuario?.nombre_tienda) ||
@@ -896,6 +908,14 @@ if (sortConfig.key) {
             </div>
             <div className="mobile-row">
               <div>
+                <strong>Estado:</strong>{" "}
+                {item.exitoso ? 'Exitosa ' : 'Fallida '}
+              </div>
+              <div>
+                <strong>Mensaje:</strong>{" "}
+                {item.mensajeError || ""}
+              </div>
+              <div>
                 <strong>Vendedor:</strong>{" "}
                 {item.Tienda?.usuario?.nombres_apellidos ||
                   formatTextByChunks(item.Tienda?.usuario?.nombre_tienda) ||
@@ -915,7 +935,15 @@ if (sortConfig.key) {
         {item.fecha ? new Date(item.fecha).toLocaleTimeString() : ""}
       </div>
       <div>
-        <strong>Movimiento:</strong> {item.titulo}
+        <strong>Movimiento:</strong> 
+
+
+                     {formatTextByChunks(
+              (item.titulo=== "Recarga") && 
+              item.exitoso === false
+                ? `${item.titulo} no exitosa`
+                : item.titulo
+            ) || ""}
       </div>
     </div>
     <div className="mobile-row">
@@ -1069,226 +1097,7 @@ if (sortConfig.key) {
       return null;
     });
   };
-  const exportToExcelAnt = async () => {
-    const optionMap = {
-      General: { internalOption: "general", title: "General" },
-      Aperturas: { internalOption: "aperturas", title: "Aperturas" },
-      Saldos: { internalOption: "saldos", title: "Saldos" },
-      Abonos: { internalOption: "abonos", title: "Abonos" },
-      "Depósitos": { internalOption: "depósitos", title: "Depósitos" },
-      Depositos: { internalOption: "recepción de saldo", title: "Recepción de saldo" },
-      Recargas: { internalOption: "recargas", title: "Recargas" },
-    };
 
-    const selectedOptionData = optionMap[selectedOption];
-    const internalOption = selectedOptionData?.internalOption || "";
-    const title = selectedOptionData?.title || selectedOption;
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Historial");
-
-    // Definir las columnas basadas en las columnas de la tabla
-    const columns = (() => {
-      switch (internalOption) {
-        case "general":
-          return [
-            { header: "Timestamp", key: "fecha", width: 25 },
-            { header: "Movimiento", key: "titulo", width: 20 },
-            { header: "Autor", key: "autor", width: 25 },
-
-            { header: "Usuario", key: "usuario", width: 25 },
-            { header: "Cantidad", key: "valor", width: 25 },
-          ];
-        case "aperturas":
-          return [
-            { header: "Nombre", key: "nombre", width: 25 },
-            { header: "Fecha Creación", key: "createdAt", width: 20 },
-            { header: "Fecha De Eliminación", key: "updatedAt", width: 20 },
-            { header: "Celular", key: "celular", width: 15 },
-            { header: "Ubicación", key: "ubicacion", width: 30 },
-            { header: "Promedio Semanal", key: "promedioSemanal", width: 20 },
-            { header: "Vendedor", key: "vendedor", width: 25 },
-          ];
-        case "saldos":
-          return [
-            { header: "Tienda", key: "tienda", width: 25 },
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Vendedor", key: "vendedor", width: 25 },
-          ];
-        case "abonos":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Tipo", key: "tipo", width: 50 },
-          ];
-        case "depósitos":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Tipo", key: "tipo", width: 50 },
-          ];
-        case "recepción de saldo":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Tipo", key: "tipo", width: 50 },
-          ];
-        case "recargas":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Folio", key: "folio", width: 15 },
-            { header: "Número", key: "numero", width: 20 },
-            { header: "Cantidad", key: "cantidad", width: 15 },
-            { header: "Compañía", key: "compania", width: 20 },
-            { header: "Clase", key: "clase", width: 15 },
-            { header: "Vendedor", key: "vendedor", width: 25 },
-          ];
-        default:
-          return [];
-      }
-    })();
-
-    const columnCount = columns.length;
-
-    // Agregar encabezado con título y fechas
-    worksheet.mergeCells(1, 1, 1, columnCount);
-    worksheet.getCell("A1").value = title;
-    worksheet.getCell("A1").font = { size: 16, bold: true };
-    worksheet.getCell("A1").alignment = { horizontal: "center" };
-
-    // Establecer fechas
-    worksheet.mergeCells(2, 1, 2, columnCount);
-    worksheet.getCell("A2").value = `Fecha de Inicio: ${startDate ? startDate.toLocaleDateString() : ""
-      }  |  Fecha de Corte: ${endDate ? endDate.toLocaleDateString() : ""}`;
-    worksheet.getCell("A2").font = { size: 12 };
-    worksheet.getCell("A2").alignment = { horizontal: "center" };
-
-    // Eliminar 'header' de las columnas al configurar worksheet.columns
-    const columnsWithoutHeader = columns.map(({ header, ...rest }) => rest);
-    worksheet.columns = columnsWithoutHeader;
-
-    // Aplicar estilo a los encabezados de columna (fila 3) con color y filtro
-    worksheet.getRow(3).font = { bold: true, color: { argb: "FF000000" } }; // Negro
-    worksheet.getRow(3).eachCell((cell, colNumber) => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFF00" } }; // Color amarillo
-      cell.alignment = { horizontal: "center" };
-    });
-
-    // Agregar los encabezados de columna manualmente
-    columns.forEach((column, index) => {
-      const cell = worksheet.getCell(3, index + 1);
-      cell.value = column.header;
-      cell.font = { bold: true, color: { argb: "FF000000" } }; // Negro y negrita
-      cell.alignment = { horizontal: "center" };
-    });
-
-    // Iniciar desde la fila 4 para dejar espacio al encabezado
-    const startingRow = 4;
-
-    // Crear un formateador de moneda
-    const currencyFormatter = new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-    });
-
-    // Agregar datos
-    filteredData.forEach((item, dataIndex) => {
-      let rowData = {};
-
-      switch (internalOption) {
-        case "general":
-          rowData = {
-            fecha: item.fecha ? new Date(item.fecha).toLocaleString() : "",
-            titulo: item.titulo || "",
-            autor: item.autor || "",
-            valor: item.valor || "",
-          };
-          break;
-        case "aperturas":
-          rowData = {
-            nombre: item.usuario?.nombres_apellidos || item.usuario?.nombre_tienda || "",
-            createdAt: item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
-            updatedAt: item.usuario?.eliminado
-              ? item.updatedAt
-                ? new Date(item.updatedAt).toLocaleString()
-                : ""
-              : "",
-            celular: item.usuario?.celular.slice(-10) || "",
-            ubicacion: item.latitud && item.longitud ? `${item.latitud.toFixed(5)}, ${item.longitud.toFixed(5)}` : "",
-            promedioSemanal: item.promedioSemanal || "0",
-            vendedor: item.creador?.nombres_apellidos || item.creador?.correo || "",
-          };
-          break;
-        case "saldos":
-          rowData = {
-            tienda: item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || "",
-            fecha: item.fecha ? new Date(item.fecha).toLocaleDateString() : "",
-            hora: item.fecha ? new Date(item.fecha).toLocaleTimeString() : "",
-            valor: item.valor,
-            vendedor: item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || "",
-          };
-          break;
-        case "abonos":
-          rowData = {
-            fecha: item.fecha ? new Date(item.fecha).toLocaleDateString() : "",
-            hora: item.fecha ? new Date(item.fecha).toLocaleTimeString() : "",
-            valor: item.valor,
-            tipo: item.tipo === "Deposito"
-              ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
-              : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
-          };
-          break;
-        case "depósitos":
-          rowData = {
-            fecha: item.fecha ? new Date(item.fecha).toLocaleDateString() : "",
-            hora: item.fecha ? new Date(item.fecha).toLocaleTimeString() : "",
-            valor: item.valor,
-            tipo: item.tipo === "Deposito"
-              ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
-              : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
-          };
-          break;
-        case "recepción de saldo":
-          rowData = {
-            fecha: item.fecha ? new Date(item.fecha).toLocaleDateString() : "",
-            hora: item.fecha ? new Date(item.fecha).toLocaleTimeString() : "",
-            valor: item.valor,
-            tipo: item.tipo === "Deposito"
-              ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
-              : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
-          };
-          break;
-        case "recargas":
-          rowData = {
-            fecha: item.fecha ? new Date(item.fecha).toLocaleDateString() : "",
-            hora: item.fecha ? new Date(item.fecha).toLocaleTimeString() : "",
-            folio: item.folio || "",
-            numero: item.celular || "",
-            cantidad: item.valor,
-            compania: item.operadora || "",
-            clase: item.tipo ? item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1).toLowerCase() : "",
-            vendedor: item.Tienda?.usuario?.nombres_apellidos || item.Tienda?.usuario?.nombre_tienda || item.Tienda?.usuario?.correo || "",
-          };
-          break;
-        default:
-          break;
-      }
-
-      // Agregar la fila de datos
-      worksheet.addRow(rowData);
-    });
-
-    // Guardar el workbook
-    const filename = `${title}.xlsx`;
-    const buffer = await workbook.xlsx.writeBuffer();
-    FileSaver.saveAs(new Blob([buffer]), filename);
-  };
 
   const formatDateGTM6 = (dateString) => {
   if (!dateString) return "N/A";
@@ -1387,6 +1196,8 @@ if (sortConfig.key) {
             { header: "Cantidad", key: "cantidad", width: 15 },
             { header: "Compañía", key: "compania", width: 20 },
             { header: "Clase", key: "clase", width: 15 },
+            { header: "Estado", key: "exitoso", width: 15 },
+            { header: "Mensaje", key: "mensajeError", width: 30 },
             { header: "Vendedor", key: "vendedor", width: 25 },
           ];
         default:
@@ -1445,7 +1256,14 @@ if (sortConfig.key) {
         case "general":
           rowData = {
             fecha: formatDateGTM6(item.fecha),
-            titulo: item.titulo || "",
+            titulo: 
+
+            ((item.titulo === "Recarga") && 
+              item.exitoso === false
+                ? `${item.titulo} no exitosa`
+                : item.titulo
+            ) || "",
+
             autor: item.autor || "",
             usuario: item.usuario || "",
 
@@ -1532,6 +1350,8 @@ if (sortConfig.key) {
               : 0,
             compania: item.operadora || "",
             clase: item.tipo ? item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1).toLowerCase() : "",
+            exitoso: item.exitoso ? "Exitosa" : "Fallida",
+            mensajeError: item.mensajeError || "",
             vendedor: item.Tienda?.usuario?.nombres_apellidos || item.Tienda?.usuario?.nombre_tienda || item.Tienda?.usuario?.correo || "",
           };
           break;
