@@ -412,7 +412,7 @@ router.get('/obtener-tiendas/usuario-anterior', authenticateToken, async (req, r
 
 router.post('/crear-por-tienda', authenticateToken, async (req, res) => {
   // Desestructuramos correctamente el valor de 'contrasenia' desde el req.body
-  const { nombre_tienda, latitud, longitud, celular, contrasenia } = req.body;
+  const { nombre_tienda, latitud, longitud, celular, contrasenia, porcentaje } = req.body;
 
   if (req.user.rol !== 'administrador' && req.user.rol !== 'vendedor') {
     return res.status(403).json({ error: 'No autorizado' });
@@ -443,7 +443,8 @@ router.post('/crear-por-tienda', authenticateToken, async (req, res) => {
       latitud, 
       longitud, 
       UsuarioId: usuarioTienda.id, 
-      createdBy: req.user.id
+      createdBy: req.user.id,
+      porcentaje: porcentaje
     });
 
     // Responder con éxito
@@ -454,7 +455,8 @@ router.post('/crear-por-tienda', authenticateToken, async (req, res) => {
         nombre_tienda: usuarioTienda.nombre_tienda,
         celular: usuarioTienda.celular,
         latitud: tienda.latitud,
-        longitud: tienda.longitud
+        longitud: tienda.longitud,
+        porcentaje: tienda.porcentaje,
       }
     });
   } catch (error) {
@@ -2363,7 +2365,7 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
       
       //Editado empieza aquí
 
-      case 'general': {
+   case 'general': {
   const tiendaUsuario = await Tienda.findOne({ where: { UsuarioId: userId } });
 
   const [
@@ -2402,6 +2404,8 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
           where: { activo: true },
         },
       ],
+      order: [['createdAt', 'DESC']],
+      limit: limitIfNoDate, // ✅ Solo limita cuando NO hay fechas
     }),
 
     // Saldos
@@ -2421,19 +2425,24 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
         },
       ],
       attributes: ['valor', 'fecha'],
-      limit: limitIfNoDate,
+      order: [['fecha', 'DESC']],
+      limit: limitIfNoDate, // ✅ Solo limita cuando NO hay fechas
     }),
 
-    // Depósitos (PagVendedor tipo Deposito)
+    // Depósitos
     PagVendedor.findAll({
       where: { vendedorId: userId, tipo: 'Deposito', ...dateFilterFecha },
       attributes: ['fecha', 'valor', 'tipo'],
-      limit: limitIfNoDate,
+      order: [['fecha', 'DESC']],
+      limit: limitIfNoDate, // ✅ Solo limita cuando NO hay fechas
     }),
 
-    // Ventas
+    // Ventas (recargas de tiendas creadas por el vendedor, excluyendo su propia tienda)
     Recarga.findAll({
-      where: { ...dateFilterFecha },
+      where: { 
+        ...dateFilterFecha,
+        ...(tiendaUsuario ? { TiendaId: { [Op.ne]: tiendaUsuario.id } } : {})
+      },
       include: [
         {
           model: Tienda,
@@ -2447,33 +2456,37 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
           ],
         },
       ],
-      attributes: ['fecha', 'valor'],
-      limit: limitIfNoDate,
+      attributes: ['fecha', 'valor', 'exitoso', 'mensajeError'],
+      order: [['fecha', 'DESC']],
+      limit: limitIfNoDate, // ✅ Solo limita cuando NO hay fechas
     }),
 
-    // Recargas (desde la tienda del usuario)
+    // Recargas (solo de la tienda del usuario)
     tiendaUsuario
       ? Recarga.findAll({
           where: { TiendaId: tiendaUsuario.id, ...dateFilterFecha },
-          attributes: ['fecha', 'valor'],
-          limit: limitIfNoDate,
+          attributes: ['fecha', 'valor', 'exitoso', 'mensajeError'],
+          order: [['fecha', 'DESC']],
+          limit: limitIfNoDate, // ✅ Solo limita cuando NO hay fechas
         })
       : [],
 
-    // Saldos (desde la tienda del usuario)
+    // Saldos de la tienda del usuario
     tiendaUsuario
       ? Saldo.findAll({
           where: { TiendaId: tiendaUsuario.id, ...dateFilterFecha },
           attributes: ['fecha', 'valor', 'credito'],
-          limit: limitIfNoDate,
+          order: [['fecha', 'DESC']],
+          limit: limitIfNoDate, // ✅ Solo limita cuando NO hay fechas
         })
       : [],
 
-    // Pagos tipo Recarga desde PagVendedor
+    // Pagos tipo Recarga
     PagVendedor.findAll({
       where: { vendedorId: userId, tipo: 'Recarga', ...dateFilterFecha },
       attributes: ['fecha', 'valor', 'tipo'],
-      limit: limitIfNoDate,
+      order: [['fecha', 'DESC']],
+      limit: limitIfNoDate, // ✅ Solo limita cuando NO hay fechas
     }),
   ]);
 
@@ -2501,12 +2514,16 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
       fecha: v.fecha,
       nombre_tienda: v.Tienda?.usuario?.nombre_tienda || null,
       valor: v.valor,
+      exitoso: v.exitoso,
+      mensajeError: v.mensajeError,
     })),
     ...recargas.map((r) => ({
       tipoMovimiento: 'Recarga',
       fecha: r.fecha,
       nombre_tienda: null,
       valor: r.valor,
+      exitoso: r.exitoso,
+      mensajeError: r.mensajeError,
     })),
     ...saldosRecargas.map((s) => ({
       tipoMovimiento: s.credito ? 'Pago' : 'Saldo',
@@ -2523,11 +2540,12 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
   ];
 
   movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  result = movimientos;
+  
+  // ✅ Solo limitar a 100 cuando NO se especifican fechas
+  result = (!startDateQuery && !endDateQuery) 
+    ? movimientos.slice(0, 100) 
+    : movimientos;
 
-            if (!startDateQuery && !endDateQuery) {
-            result = result.slice(0, 100);
-          }
   break;
 }
 
@@ -2696,7 +2714,7 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
   
         const recargas = await Recarga.findAll({
           where: { TiendaId: tienda.id, ...dateFilterFecha },
-          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio'],
+          attributes: ['fecha', 'valor', 'operadora', 'tipo', 'celular', 'folio', 'exitoso', 'mensajeError'],
           order: [['fecha', 'DESC']],
           limit: limitIfNoDate,
         });
@@ -2724,6 +2742,8 @@ router.get('/historial2/:userId/:option', authenticateToken, async (req, res) =>
             tipoRecarga: recarga.tipo,
             celular: recarga.celular,
             folio: recarga.folio,
+            exitoso: recarga.exitoso,
+            mensajeError: recarga.mensajeError
           })),
           ...saldos.map(saldo => ({
             tipoMovimiento: saldo.credito ? 'Pago' : 'Saldo',
@@ -3302,7 +3322,7 @@ router.post('/actualizar-orden', async (req, res) => {
           }
   
           const recargas2 = await Recarga.findAll({
-            attributes: ["fecha", "valor"],
+            attributes: ["fecha", "valor", "exitoso", "mensajeError"],
             include: [
               {
                 model: Tienda,
@@ -3482,6 +3502,8 @@ const eliminaciones = eliminadas.map((e) => ({
                 r.Tienda?.usuario?.nombre_tienda ||
                 "Desconocido",
               valor: r.valor,
+              exitoso: r.exitoso,
+              mensajeError: r.mensajeError,
             })),
             ...abonos2.map((a) => ({
               fecha: a.fecha,
@@ -3624,7 +3646,7 @@ const eliminaciones = eliminadas.map((e) => ({
                 ],
               },
             ],
-            attributes: ["fecha", "valor", "operadora", "tipo", "celular", "folio"],
+            attributes: ["fecha", "valor", "operadora", "tipo", "celular", "folio", "exitoso", "mensajeError"],
             where:
               Object.keys(dateFilterFecha).length > 0
                 ? dateFilterFecha
