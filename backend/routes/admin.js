@@ -5449,6 +5449,127 @@ router.post('/eliminar-vendedor/:id', authenticateToken, async (req, res) => {
 
 
 
+const soloAdmin = (req, res, next) => {
+  if (req.user.rol !== 'administrador') {
+    return res.status(403).json({ error: 'Solo administradores' });
+  }
+  next();
+};
+
+
+// backend/routes/admin.js (o donde tengas las rutas de admin)
+
+// Obtener todos los usuarios válidos (activos) clasificados
+router.get('/usuarios-validos', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    // Obtener todos los usuarios activos
+    const usuarios = await Usuario.findAll({
+      where: {
+        activo: true // Solo usuarios activos
+      },
+      attributes: [
+        'id',
+        'nombres_apellidos',
+        'nombre_tienda',
+        'rol'
+      ],
+      order: [
+        // Ordenar: 1. Administradores, 2. Vendedores, 3. Tiendas
+        [sequelize.literal(`
+          CASE 
+            WHEN rol = 'administrador' THEN 1
+            WHEN rol = 'vendedor' THEN 2
+            WHEN rol = 'tienda' THEN 3
+            ELSE 4
+          END
+        `)],
+        ['nombres_apellidos', 'ASC'],
+        ['nombre_tienda', 'ASC']
+      ]
+    });
+
+    // Formatear respuesta con nombre completo y detalles
+    const usuariosFormateados = usuarios.map(user => {
+      let nombreCompleto = '';
+      let tipoUsuario = '';
+
+      switch(user.rol) {
+        case 'administrador':
+          nombreCompleto = user.nombres_apellidos || 'Administrador';
+          tipoUsuario = 'Administrador';
+          break;
+        case 'vendedor':
+          nombreCompleto = user.nombres_apellidos || `Vendedor ${user.id}`;
+          tipoUsuario = 'Vendedor';
+          break;
+        case 'tienda':
+          nombreCompleto = user.nombre_tienda || user.nombres_apellidos || `Tienda ${user.id}`;
+          tipoUsuario = 'Tienda';
+          break;
+        default:
+          nombreCompleto = user.nombres_apellidos || user.nombre_tienda || `Usuario ${user.id}`;
+          tipoUsuario = 'Usuario';
+      }
+
+      return {
+        id: user.id,
+        nombreCompleto,
+        nombreOriginal: user.nombres_apellidos,
+        nombreTienda: user.nombre_tienda,
+        rol: user.rol,
+        tipoUsuario,
+        // Para mostrar en select: "Tipo - Nombre"
+        displayName: `${tipoUsuario} - ${nombreCompleto}`
+      };
+    });
+
+    // Estadísticas
+    const stats = {
+      total: usuariosFormateados.length,
+      administradores: usuariosFormateados.filter(u => u.rol === 'administrador').length,
+      vendedores: usuariosFormateados.filter(u => u.rol === 'vendedor').length,
+      tiendas: usuariosFormateados.filter(u => u.rol === 'tienda').length
+    };
+
+    res.json({
+      usuarios: usuariosFormateados,
+      stats
+    });
+
+  } catch (error) {
+    console.error('Error al obtener usuarios válidos:', error);
+    res.status(500).json({ 
+      error: 'Error al obtener usuarios',
+      detalles: error.message 
+    });
+  }
+});
+
+// Alternativa: Endpoint más simple si no necesitas tanto detalle
+router.get('/usuarios-validos-simple', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const usuarios = await Usuario.findAll({
+      where: { activo: true },
+      attributes: ['id', 'nombres_apellidos', 'nombre_tienda', 'rol'],
+      order: [
+        [sequelize.literal(`
+          CASE 
+            WHEN rol = 'administrador' THEN 1
+            WHEN rol = 'vendedor' THEN 2
+            WHEN rol = 'tienda' THEN 3
+            ELSE 4
+          END
+        `)],
+        ['id', 'ASC']
+      ]
+    });
+
+    res.json(usuarios);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 
 module.exports = router;

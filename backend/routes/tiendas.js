@@ -543,7 +543,7 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           proveedor: proveedor,  // GUARDAR PROVEEDOR
 
           saldoGestopago: respuestaGestopago.saldo,
-          x: respuestaGestopago.comision
+          comision: respuestaGestopago.comision
         });
 
                 console.log(`✅ Nuevo saldo de ${proveedor}: $${respuestaGestopago.saldo}`);
@@ -633,7 +633,10 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           exitoso: false,
           codigoError: null,
           proveedor: proveedor || null,
-          mensajeError: 'Transacción duplicada'
+          mensajeError: 'Transacción duplicada',
+
+          saldoGestopago: respuestaGestopago.saldo,
+          comision: respuestaGestopago.comision
         });
 
         return res.status(409).json({
@@ -654,7 +657,10 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           exitoso: false,
           proveedor: proveedor || null,
 
-          mensajeError: 'Tiempo de espera agotado'
+          mensajeError: 'Tiempo de espera agotado',
+
+          saldoGestopago: respuestaGestopago.saldo,
+          comision: respuestaGestopago.comision
         });
 
                 // Guardar datos para verificación posterior
@@ -814,6 +820,9 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
         folio: null,
         exitoso: false,
         codigoError: null,
+
+          saldoGestopago: respuestaGestopago.saldo,
+          comision: respuestaGestopago.comision,
         mensajeError: errorGestopago.mensaje || 'Error de conexión con el servicio de recargas'
       });
 
