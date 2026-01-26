@@ -14,6 +14,19 @@ const Recarga = sequelize.define('Recarga', {
   exitoso: { type: DataTypes.BOOLEAN, defaultValue: true },
   codigoError: { type: DataTypes.INTEGER, allowNull: true },
   mensajeError: { type: DataTypes.STRING, allowNull: true },
+
+  saldoGestopago: { type: DataTypes.FLOAT, allowNull: true },
+  comision: { type: DataTypes.FLOAT, allowNull: true },
+
+
+  // Identificar el proveedor usado
+  proveedor: { 
+    type: DataTypes.ENUM('general', 'movistar'), 
+    allowNull: false,
+    defaultValue: 'general',
+    comment: 'general=2611, movistar=2612'
+  },
+  
 });
 
 Recarga.belongsTo(Tienda);

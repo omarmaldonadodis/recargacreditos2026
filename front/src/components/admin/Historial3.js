@@ -1397,7 +1397,7 @@ if (sortConfig.key) {
   };
 
   return (
-    <Container>
+<Container fluid="xxl" className="px-3">
       <br />
       <Row>
         <Col md={12} className="d-flex justify-content-between mb-3">
