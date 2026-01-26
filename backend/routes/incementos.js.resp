@@ -1,0 +1,598 @@
+// backend/routes/incrementos.js - VERSIÓN CORREGIDA COMPLETA
+
+const express = require('express');
+const router = express.Router();
+const { authenticateToken, soloAdmin } = require('../middlewares/auth');
+const { IncrementoSaldo, Deposito, AsignacionDeposito, ConfiguracionSistema, Usuario, Recarga } = require('../models');
+const { Op } = require('sequelize');
+const sequelize = require('../config/database');
+
+// ============= CONFIGURACIÓN =============
+
+// Obtener estado de detección
+router.get('/configuracion/deteccion', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const config = await ConfiguracionSistema.findOne({
+      where: { clave: 'deteccion_incrementos_habilitada' }
+    });
+    
+    res.json({ 
+      habilitada: config?.valor === 'true' 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Actualizar estado de detección
+router.post('/configuracion/deteccion', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { habilitada } = req.body;
+    
+    await ConfiguracionSistema.upsert({
+      clave: 'deteccion_incrementos_habilitada',
+      valor: habilitada ? 'true' : 'false'
+    });
+    
+    res.json({ 
+      mensaje: `Detección ${habilitada ? 'activada' : 'desactivada'}`,
+      habilitada 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= NOTIFICACIONES =============
+
+// Obtener incrementos pendientes (con conteo)
+router.get('/notificaciones', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { proveedor } = req.query;
+    
+    const where = { estado: 'pendiente' };
+    
+    if (proveedor) {
+      where.proveedor = proveedor;
+    }
+    
+    const incrementos = await IncrementoSaldo.findAll({
+      where,
+      order: [['fecha', 'DESC']],
+      include: [{
+        model: Recarga,
+        attributes: ['id', 'folio', 'operadora']
+      }]
+    });
+    
+    res.json({
+      incrementos,
+      conteo: incrementos.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener solo el conteo de notificaciones
+router.get('/notificaciones/conteo', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { proveedor } = req.query;
+    
+    const where = { estado: 'pendiente' };
+    
+    if (proveedor) {
+      where.proveedor = proveedor;
+    }
+    
+    const conteo = await IncrementoSaldo.count({ where });
+    
+    res.json({ pendientes: conteo });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= DEPÓSITOS =============
+
+// Registrar un nuevo depósito
+router.post('/depositos', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { monto, usuarioId, proveedor, operadora, notas } = req.body;
+
+    if (!monto || !usuarioId || !proveedor) {
+      return res.status(400).json({ 
+        error: 'Faltan campos requeridos: monto, usuarioId, proveedor' 
+      });
+    }
+
+    const montoNum = parseFloat(monto);
+    if (montoNum <= 0) {
+      return res.status(400).json({ 
+        error: 'El monto debe ser mayor a 0' 
+      });
+    }
+
+    // ✅ Validar que el monto no supere el incremento máximo
+    const incrementosPendientes = await IncrementoSaldo.findAll({
+      where: { proveedor, estado: 'pendiente' },
+      order: [['diferencia', 'DESC']],
+      limit: 1
+    });
+
+    if (incrementosPendientes.length > 0) {
+      const incrementoMaximo = parseFloat(incrementosPendientes[0].diferencia);
+      
+      if (montoNum > incrementoMaximo) {
+        return res.status(400).json({ 
+          error: `El monto ($${montoNum.toFixed(2)}) supera el incremento máximo disponible ($${incrementoMaximo.toFixed(2)}) para el proveedor ${proveedor}` 
+        });
+      }
+    }
+
+    const usuario = await Usuario.findByPk(usuarioId);
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const nuevoDeposito = await Deposito.create({
+      monto: montoNum,
+      UsuarioId: usuarioId,
+      proveedor,
+      operadora,
+      notas,
+      asignado: false,
+      fecha: new Date()
+    });
+
+    console.log(`✅ Depósito registrado: $${montoNum.toFixed(2)} de ${usuario.nombres_apellidos || usuario.nombre_tienda} (${proveedor})`);
+
+    res.status(201).json({
+      mensaje: 'Depósito registrado exitosamente',
+      deposito: nuevoDeposito
+    });
+
+  } catch (error) {
+    console.error('❌ Error al registrar depósito:', error);
+    res.status(500).json({ 
+      error: 'Error al registrar depósito',
+      detalles: error.message 
+    });
+  }
+});
+
+// Obtener depósitos
+router.get('/depositos', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { proveedor, asignado } = req.query;
+    
+    const where = {};
+    
+    if (proveedor) {
+      where.proveedor = proveedor;
+    }
+    
+    if (asignado !== undefined) {
+      where.asignado = asignado === 'true';
+    }
+    
+    const depositos = await Deposito.findAll({
+      where,
+      include: [{
+        model: Usuario,
+        attributes: ['id', 'nombres_apellidos', 'nombre_tienda', 'rol']
+      }],
+      order: [['fecha', 'DESC']]
+    });
+    
+    res.json(depositos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Editar un depósito (solo si no está asignado)
+router.put('/depositos/:id', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { monto, notas } = req.body;
+
+  try {
+    const deposito = await Deposito.findByPk(id);
+
+    if (!deposito) {
+      return res.status(404).json({ error: 'Depósito no encontrado' });
+    }
+
+    if (deposito.asignado) {
+      return res.status(400).json({ 
+        error: 'No se puede editar un depósito que ya fue asignado. Primero desasigna el incremento correspondiente.' 
+      });
+    }
+
+    if (monto !== undefined) {
+      deposito.monto = parseFloat(monto);
+    }
+    if (notas !== undefined) {
+      deposito.notas = notas;
+    }
+
+    await deposito.save();
+
+    console.log(`✅ Depósito ${id} actualizado exitosamente`);
+
+    res.json({ 
+      mensaje: 'Depósito actualizado exitosamente',
+      deposito
+    });
+
+  } catch (error) {
+    console.error('❌ Error al actualizar depósito:', error);
+    res.status(500).json({ 
+      error: 'Error al actualizar depósito',
+      detalles: error.message 
+    });
+  }
+});
+
+// Eliminar un depósito (solo si no está asignado)
+router.delete('/depositos/:id', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deposito = await Deposito.findByPk(id);
+
+    if (!deposito) {
+      return res.status(404).json({ error: 'Depósito no encontrado' });
+    }
+
+    if (deposito.asignado) {
+      return res.status(400).json({ 
+        error: 'No se puede eliminar un depósito que ya fue asignado. Primero desasigna el incremento correspondiente.' 
+      });
+    }
+
+    await deposito.destroy();
+
+    console.log(`✅ Depósito ${id} eliminado exitosamente`);
+
+    res.json({ 
+      mensaje: 'Depósito eliminado exitosamente',
+      depositoId: id
+    });
+
+  } catch (error) {
+    console.error('❌ Error al eliminar depósito:', error);
+    res.status(500).json({ 
+      error: 'Error al eliminar depósito',
+      detalles: error.message 
+    });
+  }
+});
+
+// ============= INCREMENTOS =============
+
+// Obtener incrementos con filtros
+router.get('/incrementos', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { estado, proveedor } = req.query;
+    
+    const where = {};
+    
+    if (estado) where.estado = estado;
+    if (proveedor) where.proveedor = proveedor;
+    
+    const incrementos = await IncrementoSaldo.findAll({
+      where,
+      order: [['fecha', 'DESC']],
+      include: [{
+        model: Deposito,
+        as: 'depositos',
+        through: { attributes: ['montoAsignado'] },
+        include: [{
+          model: Usuario,
+          attributes: ['id', 'nombres_apellidos', 'nombre_tienda', 'rol']
+        }]
+      }]
+    });
+    
+    res.json(incrementos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Detalle de un incremento con cálculo de ganancia
+router.get('/incrementos/:id', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const incremento = await IncrementoSaldo.findByPk(id, {
+      include: [{
+        model: Deposito,
+        as: 'depositos',
+        through: { attributes: ['montoAsignado'] },
+        include: [{
+          model: Usuario,
+          attributes: ['id', 'nombres_apellidos', 'nombre_tienda', 'rol']
+        }]
+      }]
+    });
+    
+    if (!incremento) {
+      return res.status(404).json({ error: 'Incremento no encontrado' });
+    }
+    
+    // ✅ FIX: Calcular totales con parseFloat
+    let totalDepositado = 0;
+    const depositosDetalle = [];
+    
+    if (incremento.depositos && incremento.depositos.length > 0) {
+      for (const deposito of incremento.depositos) {
+        const monto = parseFloat(deposito.AsignacionDeposito.montoAsignado);
+        totalDepositado += monto;
+        
+        depositosDetalle.push({
+          depositoId: deposito.id,
+          monto: monto.toFixed(2),
+          usuario: deposito.Usuario.nombres_apellidos || deposito.Usuario.nombre_tienda,
+          rol: deposito.Usuario.rol
+        });
+      }
+    }
+    
+    // ✅ FIX: parseFloat para diferencia
+    const diferenciaIncremento = parseFloat(incremento.diferencia);
+    const ganancia = diferenciaIncremento - totalDepositado;
+    const porcentajeGanancia = diferenciaIncremento > 0 
+      ? ((ganancia / diferenciaIncremento) * 100).toFixed(2)
+      : 0;
+    
+    res.json({
+      id: incremento.id,
+      saldoAnterior: parseFloat(incremento.saldoAnterior).toFixed(2),
+      saldoNuevo: parseFloat(incremento.saldoNuevo).toFixed(2),
+      diferencia: diferenciaIncremento.toFixed(2),
+      proveedor: incremento.proveedor,
+      operadora: incremento.operadora,
+      estado: incremento.estado,
+      fecha: incremento.fecha,
+      notas: incremento.notas,
+      
+      depositos: depositosDetalle,
+      totalDepositado: totalDepositado.toFixed(2),
+      ganancia: ganancia.toFixed(2),
+      porcentajeGanancia: `${porcentajeGanancia}%`,
+      
+      analisis: {
+        incrementoDetectado: diferenciaIncremento.toFixed(2),
+        depositosRegistrados: depositosDetalle.length,
+        sumaDepositos: totalDepositado.toFixed(2),
+        gananciaReal: ganancia.toFixed(2),
+        porcentajeGanancia: porcentajeGanancia
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error al obtener detalle:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ ASIGNAR DEPÓSITOS - VERSIÓN CORREGIDA
+router.post('/incrementos/:id/asignar', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { depositosIds, notas } = req.body;
+  
+  try {
+    const incremento = await IncrementoSaldo.findByPk(id);
+    
+    if (!incremento) {
+      return res.status(404).json({ error: 'Incremento no encontrado' });
+    }
+    
+    if (incremento.estado !== 'pendiente') {
+      return res.status(400).json({ error: 'Este incremento ya fue procesado' });
+    }
+    
+    const depositos = await Deposito.findAll({
+      where: {
+        id: { [Op.in]: depositosIds },
+        asignado: false
+      }
+    });
+    
+    if (depositos.length !== depositosIds.length) {
+      return res.status(400).json({ 
+        error: 'Algunos depósitos no existen o ya están asignados' 
+      });
+    }
+    
+    const depositosIncorrectos = depositos.filter(d => d.proveedor !== incremento.proveedor);
+    if (depositosIncorrectos.length > 0) {
+      return res.status(400).json({ 
+        error: `Los depósitos deben ser del mismo proveedor (${incremento.proveedor})` 
+      });
+    }
+    
+    // ✅ FIX: parseFloat para todos los cálculos
+    const sumaDepositos = depositos.reduce((sum, d) => sum + parseFloat(d.monto), 0);
+    const diferenciaIncremento = parseFloat(incremento.diferencia);
+    
+    if (sumaDepositos > diferenciaIncremento) {
+      return res.status(400).json({ 
+        error: `La suma de depósitos ($${sumaDepositos.toFixed(2)}) supera el incremento detectado ($${diferenciaIncremento.toFixed(2)})` 
+      });
+    }
+    
+    const ganancia = diferenciaIncremento - sumaDepositos;
+    const porcentajeGanancia = ((ganancia / diferenciaIncremento) * 100).toFixed(2);
+    
+    console.log(`
+╔════════════════════════════════════════════╗
+║  ASIGNACIÓN DE INCREMENTO #${id.toString().padStart(3)}            ║
+╠════════════════════════════════════════════╣
+║  Incremento detectado:  $${diferenciaIncremento.toFixed(2).padStart(10)}  ║
+║  Total depositado:      $${sumaDepositos.toFixed(2).padStart(10)}  ║
+║  ─────────────────────────────────────────  ║
+║  GANANCIA:              $${ganancia.toFixed(2).padStart(10)}  ║
+║  Porcentaje:            ${porcentajeGanancia.padStart(9)}%  ║
+╚════════════════════════════════════════════╝
+    `);
+    
+    const transaction = await sequelize.transaction();
+    
+    try {
+      for (const deposito of depositos) {
+        await AsignacionDeposito.create({
+          IncrementoSaldoId: incremento.id,
+          DepositoId: deposito.id,
+          montoAsignado: parseFloat(deposito.monto)
+        }, { transaction });
+        
+        deposito.asignado = true;
+        await deposito.save({ transaction });
+      }
+      
+      incremento.estado = 'asignado';
+      if (notas) incremento.notas = notas;
+      await incremento.save({ transaction });
+      
+      await transaction.commit();
+      
+      res.json({ 
+        mensaje: 'Depósitos asignados exitosamente',
+        incremento,
+        resumen: {
+          incrementoTotal: diferenciaIncremento.toFixed(2),
+          totalDepositado: sumaDepositos.toFixed(2),
+          ganancia: ganancia.toFixed(2),
+          porcentajeGanancia: `${porcentajeGanancia}%`
+        }
+      });
+      
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('❌ Error al asignar depósitos:', error);
+    res.status(500).json({ 
+      error: error.message || 'Error al asignar depósitos'
+    });
+  }
+});
+
+// Desasignar un incremento
+router.post('/incrementos/:id/desasignar', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const incremento = await IncrementoSaldo.findByPk(id);
+    
+    if (!incremento) {
+      return res.status(404).json({ error: 'Incremento no encontrado' });
+    }
+    
+    if (incremento.estado !== 'asignado') {
+      return res.status(400).json({ error: 'Este incremento no está asignado' });
+    }
+    
+    const transaction = await sequelize.transaction();
+    
+    try {
+      const asignaciones = await AsignacionDeposito.findAll({
+        where: { IncrementoSaldoId: incremento.id }
+      });
+      
+      for (const asignacion of asignaciones) {
+        const deposito = await Deposito.findByPk(asignacion.DepositoId);
+        if (deposito) {
+          deposito.asignado = false;
+          await deposito.save({ transaction });
+        }
+        await asignacion.destroy({ transaction });
+      }
+      
+      incremento.estado = 'pendiente';
+      await incremento.save({ transaction });
+      
+      await transaction.commit();
+      
+      res.json({ 
+        mensaje: 'Incremento desasignado',
+        incremento 
+      });
+      
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Ignorar un incremento
+router.post('/incrementos/:id/ignorar', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { notas } = req.body;
+  
+  try {
+    const incremento = await IncrementoSaldo.findByPk(id);
+    
+    if (!incremento) {
+      return res.status(404).json({ error: 'Incremento no encontrado' });
+    }
+    
+    incremento.estado = 'ignorado';
+    if (notas) incremento.notas = notas;
+    await incremento.save();
+    
+    res.json({ 
+      mensaje: 'Incremento ignorado',
+      incremento 
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= REPORTES =============
+
+// Resumen de ganancias por período y proveedor
+
+// Obtener saldos actuales de ambos proveedores
+router.get('/saldos-proveedores', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const ultimoGeneral = await Recarga.findOne({
+      where: { proveedor: 'general', saldoGestopago: { [Op.ne]: null } },
+      order: [['fecha', 'DESC']],
+      attributes: ['saldoGestopago', 'fecha']
+    });
+    
+    const ultimoMovistar = await Recarga.findOne({
+      where: { proveedor: 'movistar', saldoGestopago: { [Op.ne]: null } },
+      order: [['fecha', 'DESC']],
+      attributes: ['saldoGestopago', 'fecha']
+    });
+    
+    res.json({
+      general: {
+        saldo: ultimoGeneral ? parseFloat(ultimoGeneral.saldoGestopago) : 0,
+        ultimaActualizacion: ultimoGeneral?.fecha || null
+      },
+      movistar: {
+        saldo: ultimoMovistar ? parseFloat(ultimoMovistar.saldoGestopago) : 0,
+        ultimaActualizacion: ultimoMovistar?.fecha || null
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;

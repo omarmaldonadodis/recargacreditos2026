@@ -15,8 +15,8 @@ const Recarga = sequelize.define('Recarga', {
   codigoError: { type: DataTypes.INTEGER, allowNull: true },
   mensajeError: { type: DataTypes.STRING, allowNull: true },
 
-  saldoGestopago: { type: DataTypes.FLOAT, allowNull: true },
-  comision: { type: DataTypes.FLOAT, allowNull: true },
+  saldoGestopago: { type: DataTypes.DECIMAL(10, 2), allowNull: true }, // Cambiado
+  comision: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
 
 
   // Identificar el proveedor usado

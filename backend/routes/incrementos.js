@@ -20,6 +20,10 @@ const soloAdmin = (req, res, next) => {
 
 // ==== CONFIGURACIÓN ====
 
+
+
+
+
 router.get('/configuracion/deteccion', authenticateToken, soloAdmin, async (req, res) => {
   try {
     let config = await ConfiguracionSistema.findOne({
@@ -67,37 +71,87 @@ router.post('/configuracion/deteccion', authenticateToken, soloAdmin, async (req
 // ==== DEPÓSITOS ====
 
 // Registrar un depósito
+// backend/routes/incrementos.js
+
+// ✅ ACTUALIZAR ESTE ENDPOINT CON VALIDACIÓN
+
+// Registrar un nuevo depósito
 router.post('/depositos', authenticateToken, soloAdmin, async (req, res) => {
-  const { monto, usuarioId, proveedor, operadora, notas } = req.body;
-  
   try {
-    // Validar proveedor
-    if (!['general', 'movistar'].includes(proveedor)) {
-      return res.status(400).json({ error: 'Proveedor inválido. Use "general" o "movistar"' });
+    const { monto, usuarioId, proveedor, operadora, notas } = req.body;
+
+    // Validaciones básicas
+    if (!monto || !usuarioId || !proveedor) {
+      return res.status(400).json({ 
+        error: 'Faltan campos requeridos: monto, usuarioId, proveedor' 
+      });
     }
-    
+
+    // Validar que el monto sea positivo
+    const montoNum = parseFloat(monto);
+    if (montoNum <= 0) {
+      return res.status(400).json({ 
+        error: 'El monto debe ser mayor a 0' 
+      });
+    }
+
+    // ✅ NUEVA VALIDACIÓN: Verificar que el monto no supere el incremento máximo disponible
+    const incrementosPendientes = await IncrementoSaldo.findAll({
+      where: {
+        proveedor,
+        estado: 'pendiente'
+      },
+      order: [['diferencia', 'DESC']],
+      limit: 1
+    });
+
+    if (incrementosPendientes.length > 0) {
+      const incrementoMaximo = parseFloat(incrementosPendientes[0].diferencia);
+      
+      if (montoNum > incrementoMaximo) {
+        return res.status(400).json({ 
+          error: `El monto ($${montoNum.toFixed(2)}) supera el incremento máximo disponible ($${incrementoMaximo.toFixed(2)}) para el proveedor ${proveedor}` 
+        });
+      }
+    } else {
+      // ⚠️ ADVERTENCIA: Si no hay incrementos pendientes
+      console.warn(`⚠️ Registrando depósito sin incrementos pendientes para ${proveedor}`);
+    }
+
+    // Verificar que el usuario existe
     const usuario = await Usuario.findByPk(usuarioId);
     if (!usuario) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
-    const deposito = await Deposito.create({
-      monto,
+
+    // Crear el depósito
+    const nuevoDeposito = await Deposito.create({
+      monto: montoNum,
       UsuarioId: usuarioId,
-      proveedor: proveedor,
-      operadora: operadora || null,
-      notas: notas || `Depósito de ${usuario.nombres_apellidos || usuario.nombre_tienda} en ${proveedor}`,
+      proveedor,
+      operadora,
+      notas,
+      asignado: false,
       fecha: new Date()
     });
-    
-    res.json({ 
-      mensaje: 'Depósito registrado',
-      deposito 
+
+    console.log(`✅ Depósito registrado: $${montoNum.toFixed(2)} de ${usuario.nombres_apellidos || usuario.nombre_tienda} (${proveedor})`);
+
+    res.status(201).json({
+      mensaje: 'Depósito registrado exitosamente',
+      deposito: nuevoDeposito
     });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al registrar depósito:', error);
+    res.status(500).json({ 
+      error: 'Error al registrar depósito',
+      detalles: error.message 
+    });
   }
 });
+
+module.exports = router;
 
 // Listar depósitos
 router.get('/depositos', authenticateToken, soloAdmin, async (req, res) => {
@@ -131,64 +185,7 @@ router.get('/depositos', authenticateToken, soloAdmin, async (req, res) => {
   }
 });
 
-// Editar un depósito
-router.put('/depositos/:id', authenticateToken, soloAdmin, async (req, res) => {
-  const { id } = req.params;
-  const { monto, usuarioId, operadora, notas } = req.body;
-  
-  try {
-    const deposito = await Deposito.findByPk(id);
-    
-    if (!deposito) {
-      return res.status(404).json({ error: 'Depósito no encontrado' });
-    }
-    
-    if (deposito.asignado) {
-      return res.status(400).json({ 
-        error: 'No se puede editar un depósito ya asignado. Primero desasígnelo.' 
-      });
-    }
-    
-    if (monto !== undefined) deposito.monto = monto;
-    if (usuarioId !== undefined) deposito.UsuarioId = usuarioId;
-    if (operadora !== undefined) deposito.operadora = operadora;
-    if (notas !== undefined) deposito.notas = notas;
-    
-    await deposito.save();
-    
-    res.json({ 
-      mensaje: 'Depósito actualizado',
-      deposito 
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
-// Eliminar un depósito
-router.delete('/depositos/:id', authenticateToken, soloAdmin, async (req, res) => {
-  const { id } = req.params;
-  
-  try {
-    const deposito = await Deposito.findByPk(id);
-    
-    if (!deposito) {
-      return res.status(404).json({ error: 'Depósito no encontrado' });
-    }
-    
-    if (deposito.asignado) {
-      return res.status(400).json({ 
-        error: 'No se puede eliminar un depósito asignado. Primero desasígnelo.' 
-      });
-    }
-    
-    await deposito.destroy();
-    
-    res.json({ mensaje: 'Depósito eliminado' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // ==== INCREMENTOS ====
 
@@ -224,20 +221,27 @@ router.get('/incrementos', authenticateToken, soloAdmin, async (req, res) => {
 // Obtener notificaciones pendientes
 router.get('/notificaciones', authenticateToken, soloAdmin, async (req, res) => {
   try {
+    const { proveedor } = req.query; // ✅ Recibe 'general' o 'movistar'
+
+    const where = {
+      estado: 'pendiente'
+    };
+
+    // ✅ Filtrar por proveedor si se especifica
+    if (proveedor) {
+      where.proveedor = proveedor;
+    }
+
     const incrementos = await IncrementoSaldo.findAll({
-      where: { estado: 'pendiente' },
-      order: [['fecha', 'DESC']],
-      limit: 50
+      where,
+      order: [['fecha', 'DESC']]
     });
-    
-    const conteo = await IncrementoSaldo.count({
-      where: { estado: 'pendiente' }
-    });
-    
-    res.json({ 
+
+    res.json({
       incrementos,
-      conteo 
+      conteo: incrementos.length
     });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -247,6 +251,9 @@ router.get('/notificaciones', authenticateToken, soloAdmin, async (req, res) => 
 // backend/routes/incrementos.js
 
 // Asignar depósitos a un incremento
+// backend/routes/incrementos.js
+
+// ✅ CORREGIR ESTE ENDPOINT - Asignar depósitos a un incremento
 router.post('/incrementos/:id/asignar', authenticateToken, soloAdmin, async (req, res) => {
   const { id } = req.params;
   const { depositosIds, notas } = req.body;
@@ -284,25 +291,28 @@ router.post('/incrementos/:id/asignar', authenticateToken, soloAdmin, async (req
       });
     }
     
-    // Calcular suma de depósitos
-    const sumaDepositos = depositos.reduce((sum, d) => sum + d.monto, 0);
+    // ✅ FIX: Calcular suma de depósitos - parseFloat para los montos
+    const sumaDepositos = depositos.reduce((sum, d) => sum + parseFloat(d.monto), 0);
     
-    // ⚠️ NUEVA VALIDACIÓN: Los depósitos NO deben SUPERAR el incremento
-    if (sumaDepositos > incremento.diferencia) {
+    // ✅ FIX: Convertir diferencia a número antes de comparar
+    const diferenciaIncremento = parseFloat(incremento.diferencia);
+    
+    // VALIDACIÓN: Los depósitos NO deben SUPERAR el incremento
+    if (sumaDepositos > diferenciaIncremento) {
       return res.status(400).json({ 
-        error: `La suma de depósitos ($${sumaDepositos.toFixed(2)}) supera el incremento detectado ($${incremento.diferencia.toFixed(2)}). Revisa los montos.` 
+        error: `La suma de depósitos ($${sumaDepositos.toFixed(2)}) supera el incremento detectado ($${diferenciaIncremento.toFixed(2)}). Revisa los montos.` 
       });
     }
     
     // ✅ PERMITIR que los depósitos sean menores (la diferencia es ganancia)
-    const ganancia = incremento.diferencia - sumaDepositos;
-    const porcentajeGanancia = ((ganancia / incremento.diferencia) * 100).toFixed(2);
+    const ganancia = diferenciaIncremento - sumaDepositos;
+    const porcentajeGanancia = ((ganancia / diferenciaIncremento) * 100).toFixed(2);
     
     console.log(`
 ╔════════════════════════════════════════════╗
 ║  ASIGNACIÓN DE INCREMENTO                  ║
 ╠════════════════════════════════════════════╣
-║  Incremento detectado:  $${incremento.diferencia.toFixed(2).padStart(10)}  ║
+║  Incremento detectado:  $${diferenciaIncremento.toFixed(2).padStart(10)}  ║
 ║  Total depositado:      $${sumaDepositos.toFixed(2).padStart(10)}  ║
 ║  ─────────────────────────────────────────  ║
 ║  GANANCIA:              $${ganancia.toFixed(2).padStart(10)}  ║
@@ -313,17 +323,19 @@ router.post('/incrementos/:id/asignar', authenticateToken, soloAdmin, async (req
     const transaction = await sequelize.transaction();
     
     try {
+      // Crear asignaciones
       for (const deposito of depositos) {
         await AsignacionDeposito.create({
           IncrementoSaldoId: incremento.id,
           DepositoId: deposito.id,
-          montoAsignado: deposito.monto
+          montoAsignado: parseFloat(deposito.monto) // ✅ FIX: parseFloat aquí también
         }, { transaction });
         
         deposito.asignado = true;
         await deposito.save({ transaction });
       }
       
+      // Actualizar incremento
       incremento.estado = 'asignado';
       if (notas) incremento.notas = notas;
       await incremento.save({ transaction });
@@ -334,7 +346,7 @@ router.post('/incrementos/:id/asignar', authenticateToken, soloAdmin, async (req
         mensaje: 'Depósitos asignados exitosamente',
         incremento,
         resumen: {
-          incrementoTotal: incremento.diferencia.toFixed(2),
+          incrementoTotal: diferenciaIncremento.toFixed(2),
           totalDepositado: sumaDepositos.toFixed(2),
           ganancia: ganancia.toFixed(2),
           porcentajeGanancia: `${porcentajeGanancia}%`
@@ -347,10 +359,14 @@ router.post('/incrementos/:id/asignar', authenticateToken, soloAdmin, async (req
     }
     
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al asignar depósitos:', error);
+    res.status(500).json({ 
+      error: error.message || 'Error al asignar depósitos'
+    });
   }
 });
 
+module.exports = router;
 
 // Desasignar un incremento
 router.post('/incrementos/:id/desasignar', authenticateToken, soloAdmin, async (req, res) => {
@@ -538,9 +554,7 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
       include: [{
         model: Deposito,
         as: 'depositos',
-        through: {
-          attributes: ['montoAsignado']
-        },
+        through: { attributes: ['montoAsignado'] },
         include: [{
           model: Usuario,
           attributes: ['id', 'nombres_apellidos', 'nombre_tienda', 'rol']
@@ -548,7 +562,6 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
       }]
     });
     
-    // Separar por proveedor
     const reportePorProveedor = {
       general: {
         totalIncrementos: 0,
@@ -568,12 +581,14 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
     
     for (const incremento of incrementos) {
       const prov = incremento.proveedor;
-      reportePorProveedor[prov].totalIncrementos += incremento.diferencia;
+      // ✅ FIX: parseFloat
+      const diferenciaNum = parseFloat(incremento.diferencia);
+      reportePorProveedor[prov].totalIncrementos += diferenciaNum;
       reportePorProveedor[prov].cantidadIncrementos++;
       
       if (incremento.depositos && incremento.depositos.length > 0) {
         for (const deposito of incremento.depositos) {
-          const monto = deposito.AsignacionDeposito.montoAsignado;
+          const monto = parseFloat(deposito.AsignacionDeposito.montoAsignado);
           reportePorProveedor[prov].totalDepositado += monto;
           
           const usuarioKey = deposito.Usuario.nombres_apellidos || 
@@ -592,7 +607,6 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
       }
     }
     
-    // Calcular ganancias
     for (const prov of ['general', 'movistar']) {
       reportePorProveedor[prov].gananciaTotal = 
         reportePorProveedor[prov].totalIncrementos - reportePorProveedor[prov].totalDepositado;
@@ -602,7 +616,6 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
           ? ((reportePorProveedor[prov].gananciaTotal / reportePorProveedor[prov].totalIncrementos) * 100).toFixed(2)
           : 0;
       
-      // Formatear depositosPorUsuario
       reportePorProveedor[prov].depositosPorUsuario = Object.entries(reportePorProveedor[prov].depositosPorUsuario)
         .map(([nombre, data]) => ({
           usuario: nombre,
@@ -610,13 +623,11 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
           total: data.total.toFixed(2)
         }));
       
-      // Formatear números
       reportePorProveedor[prov].totalIncrementos = reportePorProveedor[prov].totalIncrementos.toFixed(2);
       reportePorProveedor[prov].totalDepositado = reportePorProveedor[prov].totalDepositado.toFixed(2);
       reportePorProveedor[prov].gananciaTotal = reportePorProveedor[prov].gananciaTotal.toFixed(2);
     }
     
-    // Totales generales
     const totalesGenerales = {
       totalIncrementos: parseFloat(reportePorProveedor.general.totalIncrementos) + 
                         parseFloat(reportePorProveedor.movistar.totalIncrementos),
@@ -632,7 +643,6 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
       ? ((totalesGenerales.gananciaTotal / totalesGenerales.totalIncrementos) * 100).toFixed(2)
       : 0;
     
-    // Formatear
     totalesGenerales.totalIncrementos = totalesGenerales.totalIncrementos.toFixed(2);
     totalesGenerales.totalDepositado = totalesGenerales.totalDepositado.toFixed(2);
     totalesGenerales.gananciaTotal = totalesGenerales.gananciaTotal.toFixed(2);
@@ -643,9 +653,11 @@ router.get('/reportes/ganancias', authenticateToken, soloAdmin, async (req, res)
     });
     
   } catch (error) {
+    console.error('❌ Error en reportes:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 // Obtener saldos actuales de ambos proveedores
@@ -686,5 +698,92 @@ router.get('/saldos-proveedores', authenticateToken, soloAdmin, async (req, res)
     res.status(500).json({ error: error.message });
   }
 });
+
+// backend/routes/incrementos.js
+
+// ✅ AGREGAR ESTE ENDPOINT
+
+// Eliminar un depósito (solo si no está asignado)
+router.delete('/depositos/:id', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deposito = await Deposito.findByPk(id);
+
+    if (!deposito) {
+      return res.status(404).json({ error: 'Depósito no encontrado' });
+    }
+
+    // ✅ VALIDACIÓN: Solo se puede eliminar si NO está asignado
+    if (deposito.asignado) {
+      return res.status(400).json({ 
+        error: 'No se puede eliminar un depósito que ya fue asignado. Primero desasigna el incremento correspondiente.' 
+      });
+    }
+
+    // Eliminar el depósito
+    await deposito.destroy();
+
+    console.log(`✅ Depósito ${id} eliminado exitosamente`);
+
+    res.json({ 
+      mensaje: 'Depósito eliminado exitosamente',
+      depositoId: id
+    });
+
+  } catch (error) {
+    console.error('❌ Error al eliminar depósito:', error);
+    res.status(500).json({ 
+      error: 'Error al eliminar depósito',
+      detalles: error.message 
+    });
+  }
+});
+
+// ✅ OPCIONAL: Editar un depósito (solo si no está asignado)
+router.put('/depositos/:id', authenticateToken, soloAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { monto, notas } = req.body;
+
+  try {
+    const deposito = await Deposito.findByPk(id);
+
+    if (!deposito) {
+      return res.status(404).json({ error: 'Depósito no encontrado' });
+    }
+
+    // ✅ VALIDACIÓN: Solo se puede editar si NO está asignado
+    if (deposito.asignado) {
+      return res.status(400).json({ 
+        error: 'No se puede editar un depósito que ya fue asignado. Primero desasigna el incremento correspondiente.' 
+      });
+    }
+
+    // Actualizar campos
+    if (monto !== undefined) {
+      deposito.monto = parseFloat(monto);
+    }
+    if (notas !== undefined) {
+      deposito.notas = notas;
+    }
+
+    await deposito.save();
+
+    console.log(`✅ Depósito ${id} actualizado exitosamente`);
+
+    res.json({ 
+      mensaje: 'Depósito actualizado exitosamente',
+      deposito
+    });
+
+  } catch (error) {
+    console.error('❌ Error al actualizar depósito:', error);
+    res.status(500).json({ 
+      error: 'Error al actualizar depósito',
+      detalles: error.message 
+    });
+  }
+});
+
 
 module.exports = router;

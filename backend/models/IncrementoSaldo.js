@@ -6,19 +6,18 @@ class IncrementoSaldo extends Model {}
 
 IncrementoSaldo.init({
   saldoAnterior: { 
-    type: DataTypes.FLOAT, 
+    type: DataTypes.DECIMAL(10, 2), // Cambiado
     allowNull: false 
   },
-  
   saldoNuevo: { 
-    type: DataTypes.FLOAT, 
+    type: DataTypes.DECIMAL(10, 2), // Cambiado
     allowNull: false 
   },
-  
   diferencia: { 
-    type: DataTypes.FLOAT, 
+    type: DataTypes.DECIMAL(10, 2), // Cambiado
     allowNull: false 
   },
+  // .
 
     // Proveedor donde se detectó el incremento
   proveedor: { 
