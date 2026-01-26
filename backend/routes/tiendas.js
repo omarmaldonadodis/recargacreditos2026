@@ -548,38 +548,55 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
 
                 console.log(`✅ Nuevo saldo de ${proveedor}: $${respuestaGestopago.saldo}`);
 
+                // ===== REGISTRAR EVENTO DE SALDO =====
+                const contabilidadService = require('../services/contabilidadService');
 
-        // ==== DETECTAR INCREMENTO ====
-        const ConfiguracionSistema = require('../models/ConfiguracionSistema');
-        const deteccionConfig = await ConfiguracionSistema.findOne({
-          where: { clave: 'deteccion_incrementos_habilitada' }
-        });
-        
-        const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
-        
-        if (deteccionHabilitada && saldoAnteriorGestopago && respuestaGestopago.saldo) {
-          const saldoEsperado = saldoAnteriorGestopago - valor + respuestaGestopago.comision;
-          const diferencia = respuestaGestopago.saldo - saldoEsperado;
-          
-          console.log(`🔍 Análisis: Esperado=$${saldoEsperado.toFixed(2)}, Real=$${respuestaGestopago.saldo.toFixed(2)}, Diferencia=$${diferencia.toFixed(2)}`);
-          
-          // Si hay incremento mayor a 10 pesos
-          if (diferencia > 10) {
-            const IncrementoSaldo = require('../models/IncrementoSaldo');
-            
-            await IncrementoSaldo.create({
-              saldoAnterior: saldoAnteriorGestopago,
-              saldoNuevo: respuestaGestopago.saldo,
-              diferencia: diferencia,
-              proveedor: proveedor,  // GUARDAR PROVEEDOR
-              operadora: operadora,
-              RecargaId: nuevaRecarga.id,
-              fecha: new Date()
-            });
-            
-            console.log(`🎉 Incremento detectado en ${proveedor}: $${diferencia.toFixed(2)}`);
-          }
-        }
+                await contabilidadService.registrarEvento({
+                  proveedor: proveedor,
+                  saldo: respuestaGestopago.saldo,
+                  tipoEvento: 'recarga',
+                  detalles: {
+                    recargaId: nuevaRecarga.id,
+                    valor: valor,
+                    comision: respuestaGestopago.comision,
+                    operadora: operadora
+                  },
+                  RecargaId: nuevaRecarga.id
+                });
+
+                // ===== DETECTAR INCREMENTOS =====
+                const ConfiguracionSistema = require('../models/ConfiguracionSistema');
+                const deteccionConfig = await ConfiguracionSistema.findOne({
+                  where: { clave: 'deteccion_incrementos_habilitada' }
+                });
+
+                const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
+
+                if (deteccionHabilitada && saldoAnteriorGestopago && respuestaGestopago.saldo) {
+                  
+                  if (proveedor === 'general') {
+                    // Detectar incremento para GENERAL
+                    await contabilidadService.detectarIncrementoGeneral({
+                      saldoAnterior: saldoAnteriorGestopago,
+                      saldoNuevo: respuestaGestopago.saldo,
+                      valor: valor,
+                      comision: respuestaGestopago.comision,
+                      RecargaId: nuevaRecarga.id,
+                      operadora: operadora
+                    });
+                    
+                  } else if (proveedor === 'movistar') {
+                    // Detectar incremento para MOVISTAR
+                    await contabilidadService.detectarIncrementoMovistar({
+                      saldoAnterior: saldoAnteriorGestopago,
+                      saldoNuevo: respuestaGestopago.saldo,
+                      valor: valor,
+                      comision: respuestaGestopago.comision,
+                      RecargaId: nuevaRecarga.id,
+                      operadora: operadora
+                    });
+                  }
+                }
 
         const response = {
           success: true,
@@ -740,39 +757,56 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
                   limit: 1
                 }
               );
+              // ===== REGISTRAR EVENTO DE SALDO =====
+              const contabilidadService = require('../services/contabilidadService');
 
-                      // ==== DETECTAR INCREMENTO ====
-                      // ==== DETECTAR INCREMENTO ====
-        const ConfiguracionSistema = require('../models/ConfiguracionSistema');
-        const deteccionConfig = await ConfiguracionSistema.findOne({
-          where: { clave: 'deteccion_incrementos_habilitada' }
-        });
-        
-        const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
-        
-        if (deteccionHabilitada && saldoAnteriorGestopago && respuestaGestopago.saldo) {
-          const saldoEsperado = saldoAnteriorGestopago - valor;
-          const diferencia = respuestaGestopago.saldo - saldoEsperado;
-          
-          console.log(`🔍 Análisis: Esperado=$${saldoEsperado.toFixed(2)}, Real=$${respuestaGestopago.saldo.toFixed(2)}, Diferencia=$${diferencia.toFixed(2)}`);
-          
-          // Si hay incremento mayor a 10 pesos
-          if (diferencia > 10) {
-            const IncrementoSaldo = require('../models/IncrementoSaldo');
-            
-            await IncrementoSaldo.create({
-              saldoAnterior: saldoAnteriorGestopago,
-              saldoNuevo: respuestaGestopago.saldo,
-              diferencia: diferencia,
-              proveedor: proveedor,  // GUARDAR PROVEEDOR
-              operadora: operadora,
-              RecargaId: nuevaRecarga.id,
-              fecha: new Date()
-            });
-            
-            console.log(`🎉 Incremento detectado en ${proveedor}: $${diferencia.toFixed(2)}`);
-          }
-        }
+              await contabilidadService.registrarEvento({
+                proveedor: proveedor,
+                saldo: respuestaGestopago.saldo,
+                tipoEvento: 'recarga',
+                detalles: {
+                  recargaId: nuevaRecarga.id,
+                  valor: valor,
+                  comision: respuestaGestopago.comision,
+                  operadora: operadora
+                },
+                RecargaId: nuevaRecarga.id
+              });
+
+              // ===== DETECTAR INCREMENTOS =====
+              const ConfiguracionSistema = require('../models/ConfiguracionSistema');
+              const deteccionConfig = await ConfiguracionSistema.findOne({
+                where: { clave: 'deteccion_incrementos_habilitada' }
+              });
+
+              const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
+
+              if (deteccionHabilitada && saldoAnteriorGestopago && respuestaGestopago.saldo) {
+                
+                if (proveedor === 'general') {
+                  // Detectar incremento para GENERAL
+                  await contabilidadService.detectarIncrementoGeneral({
+                    saldoAnterior: saldoAnteriorGestopago,
+                    saldoNuevo: respuestaGestopago.saldo,
+                    valor: valor,
+                    comision: respuestaGestopago.comision,
+                    RecargaId: nuevaRecarga.id,
+                    operadora: operadora
+                  });
+                  
+                } else if (proveedor === 'movistar') {
+                  // Detectar incremento para MOVISTAR
+                  await contabilidadService.detectarIncrementoMovistar({
+                    saldoAnterior: saldoAnteriorGestopago,
+                    saldoNuevo: respuestaGestopago.saldo,
+                    valor: valor,
+                    comision: respuestaGestopago.comision,
+                    RecargaId: nuevaRecarga.id,
+                    operadora: operadora
+                  });
+                }
+              }
+
 
 
             } else {

@@ -354,6 +354,148 @@
   opacity: 1;
 }
 
+
+
+  /* ============= ESTILOS ADICIONALES PARA NUEVAS FUNCIONALIDADES ============= */
+
+/* Alertas con prioridad */
+.alerta-urgente {
+  border-left: 5px solid #dc3545;
+  animation: pulse 2s infinite;
+}
+
+.alerta-media {
+  border-left: 5px solid #ffc107;
+}
+
+.alerta-baja {
+  border-left: 5px solid #17a2b8;
+}
+
+/* Verificación de consistencia */
+.verificacion-exitosa {
+  background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+  padding: 2rem;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(150, 230, 161, 0.4);
+}
+
+.verificacion-error {
+  background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+  padding: 2rem;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(252, 74, 26, 0.4);
+  color: white;
+}
+
+/* Historial de eventos */
+.evento-timeline {
+  position: relative;
+  padding-left: 30px;
+}
+
+.evento-timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+}
+
+.evento-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.evento-item::before {
+  content: '●';
+  position: absolute;
+  left: -24px;
+  top: 5px;
+  color: #667eea;
+  font-size: 20px;
+}
+
+/* Progress bars personalizadas */
+.progress-ganancia {
+  height: 30px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.progress-ganancia .progress-bar {
+  background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Cards de ajustes */
+.ajuste-card {
+  transition: all 0.3s ease;
+  border-left: 4px solid #ffc107;
+}
+
+.ajuste-card:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Badges con animación */
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.badge-animated {
+  animation: badge-pulse 2s infinite;
+}
+
+/* Tooltips mejorados */
+.tooltip-custom {
+  position: relative;
+  cursor: help;
+}
+
+.tooltip-custom:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: #333;
+  color: white;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 1000;
+  font-size: 0.85rem;
+}
+
+/* Responsive adicional */
+@media (max-width: 768px) {
+  .stat-card {
+    margin-bottom: 1rem;
+  }
+
+  .resumen-financiero .resumen-valor {
+    font-size: 1.2rem;
+  }
+
+  .incrementos-modal .modal-body {
+    padding: 1rem;
+  }
+}
+  
+
 /* ============= RESPONSIVE ============= */
 @media (max-width: 768px) {
   .incrementos-modal .modal-dialog {

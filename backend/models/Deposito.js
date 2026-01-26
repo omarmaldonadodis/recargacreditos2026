@@ -7,28 +7,21 @@ class Deposito extends Model {}
 
 Deposito.init({
   monto: { 
-    type: DataTypes.FLOAT, 
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false 
   },
   
-  // Quien hizo el depósito (vendedor o admin)
   UsuarioId: {
     type: DataTypes.INTEGER,
-    references: {
-      model: 'Usuarios',
-      key: 'id'
-    },
+    references: { model: 'Usuarios', key: 'id' },
     allowNull: false
   },
 
-    // A qué proveedor corresponde este depósito
   proveedor: { 
     type: DataTypes.ENUM('general', 'movistar'), 
     allowNull: false,
-    defaultValue: 'general',
-    comment: 'general=2611, movistar=2612'
+    defaultValue: 'general'
   },
-
   
   operadora: { 
     type: DataTypes.STRING, 
@@ -40,23 +33,60 @@ Deposito.init({
     defaultValue: DataTypes.NOW 
   },
   
-  // Si ya fue asignado a un incremento
   asignado: { 
     type: DataTypes.BOOLEAN, 
     defaultValue: false 
   },
   
+  // NUEVO: Tracking de incremento relacionado
+  IncrementoSaldoId: {
+    type: DataTypes.INTEGER,
+    references: { model: 'IncrementoSaldos', key: 'id' },
+    allowNull: true,
+    comment: 'Incremento que generó este depósito'
+  },
+  
+  // NUEVO: Tipo de depósito
+  tipoDeposito: {
+    type: DataTypes.ENUM('efectivo', 'transferencia', 'ajuste', 'otro'),
+    defaultValue: 'efectivo'
+  },
+  
+  // NUEVO: Referencia bancaria
+  referencia: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  
   notas: { 
     type: DataTypes.TEXT, 
     allowNull: true 
+  },
+  
+  // NUEVO: Verificación
+  verificado: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  
+  verificadoPor: {
+    type: DataTypes.INTEGER,
+    references: { model: 'Usuarios', key: 'id' },
+    allowNull: true
+  },
+  
+  fechaVerificacion: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   sequelize,
   modelName: 'Deposito',
+  tableName: 'Depositos',
   indexes: [
-    {
-      fields: ['proveedor', 'asignado']
-    }
+    { fields: ['proveedor', 'asignado'] },
+    { fields: ['fecha'] },
+    { fields: ['verificado'] }
   ]
 });
 
