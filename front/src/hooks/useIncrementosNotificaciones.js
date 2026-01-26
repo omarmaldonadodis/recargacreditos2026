@@ -1,11 +1,12 @@
-// hooks/useIncrementosNotificaciones.js
-
+// front/src/hooks/useIncrementosNotificaciones.js - VERSIÓN MEJORADA
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/axiosConfig';
 
 const useIncrementosNotificaciones = (enabled = true, pollingInterval = 30000) => {
   const [notificacionesGeneral, setNotificacionesGeneral] = useState(0);
   const [notificacionesMovistar, setNotificacionesMovistar] = useState(0);
+  const [alertasGeneral, setAlertasGeneral] = useState(0);
+  const [alertasMovistar, setAlertasMovistar] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -16,72 +17,87 @@ const useIncrementosNotificaciones = (enabled = true, pollingInterval = 30000) =
     setError(null);
 
     try {
-      // ✅ Obtener notificaciones para GENERAL (proveedor = 'general')
-      const responseGeneral = await api.get('/incrementos/notificaciones', { 
-        params: { proveedor: 'general' } 
-      });
-      
-      // ✅ Obtener notificaciones para MOVISTAR (proveedor = 'movistar')
-      const responseMovistar = await api.get('/incrementos/notificaciones', { 
-        params: { proveedor: 'movistar' } 
-      });
+      // Obtener incrementos pendientes
+      const [responseGeneral, responseMovistar, responseAlertas] = await Promise.all([
+        api.get('/incrementos/notificaciones', { params: { proveedor: 'general' } }),
+        api.get('/incrementos/notificaciones', { params: { proveedor: 'movistar' } }),
+        api.get('/alertas/')
+      ]);
 
-      // ✅ Actualizar contadores por proveedor
       const conteoGeneral = responseGeneral.data.conteo || 0;
       const conteoMovistar = responseMovistar.data.conteo || 0;
 
       setNotificacionesGeneral(conteoGeneral);
       setNotificacionesMovistar(conteoMovistar);
 
-      console.log(`📊 Notificaciones actualizadas - General: ${conteoGeneral}, Movistar: ${conteoMovistar}`);
+      // Contar alertas por proveedor
+      const alertas = responseAlertas.data.alertas || [];
+      const alertasGen = alertas.filter(a => a.proveedor === 'general').length;
+      const alertasMov = alertas.filter(a => a.proveedor === 'movistar').length;
+
+      setAlertasGeneral(alertasGen);
+      setAlertasMovistar(alertasMov);
+
+      console.log(`📊 Notificaciones - General: ${conteoGeneral}, Movistar: ${conteoMovistar}`);
+      console.log(`🔔 Alertas - General: ${alertasGen}, Movistar: ${alertasMov}`);
 
     } catch (err) {
       console.error('Error al cargar notificaciones:', err);
       setError(err.message || 'Error al cargar notificaciones');
       
-      // En caso de error, mantener los contadores en 0
       setNotificacionesGeneral(0);
       setNotificacionesMovistar(0);
+      setAlertasGeneral(0);
+      setAlertasMovistar(0);
     } finally {
       setLoading(false);
     }
   }, [enabled]);
 
-  // Cargar notificaciones al montar y configurar polling
   useEffect(() => {
     if (!enabled) {
-      // Si se deshabilita, resetear contadores
       setNotificacionesGeneral(0);
       setNotificacionesMovistar(0);
+      setAlertasGeneral(0);
+      setAlertasMovistar(0);
       return;
     }
 
-    // Carga inicial
     cargarNotificaciones();
 
-    // Configurar polling
     const interval = setInterval(() => {
       cargarNotificaciones();
     }, pollingInterval);
 
-    // Cleanup
     return () => clearInterval(interval);
   }, [enabled, pollingInterval, cargarNotificaciones]);
 
   const totalNotificaciones = notificacionesGeneral + notificacionesMovistar;
+  const totalAlertas = alertasGeneral + alertasMovistar;
 
-  // ✅ Devolver información detallada por proveedor
   return {
+    // Incrementos
     notificacionesGeneral,
     notificacionesMovistar,
     totalNotificaciones,
+    
+    // Alertas
+    alertasGeneral,
+    alertasMovistar,
+    totalAlertas,
+    
+    // Estado
     loading,
     error,
     refetch: cargarNotificaciones,
-    // ✅ Información adicional útil
+    
+    // Helpers
     tieneNotificaciones: totalNotificaciones > 0,
+    tieneAlertas: totalAlertas > 0,
     tieneNotificacionesGeneral: notificacionesGeneral > 0,
-    tieneNotificacionesMovistar: notificacionesMovistar > 0
+    tieneNotificacionesMovistar: notificacionesMovistar > 0,
+    tieneAlertasGeneral: alertasGeneral > 0,
+    tieneAlertasMovistar: alertasMovistar > 0
   };
 };
 
