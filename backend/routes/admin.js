@@ -5465,7 +5465,8 @@ router.get('/usuarios-validos', authenticateToken, soloAdmin, async (req, res) =
     // Obtener todos los usuarios activos
     const usuarios = await Usuario.findAll({
       where: {
-        activo: true // Solo usuarios activos
+        activo: true,
+        eliminado: false // Solo usuarios activos
       },
       attributes: [
         'id',

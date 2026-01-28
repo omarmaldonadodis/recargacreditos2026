@@ -746,13 +746,14 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                             >
                               ✅ Asignar Depósitos
                             </Button>
-                            <Button 
+                            {/* <Button 
                               variant="outline-primary"
                               size="sm"
                               onClick={() => handleVerificarIncremento(inc.id)}
                             >
                               ✓ Verificar
                             </Button>
+                             */}
                             <Button 
                               variant="outline-secondary"
                               size="sm"
@@ -1242,7 +1243,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             )}
           </Tab>
 
-          {/* ============= TAB: AJUSTES (NUEVO) ============= */}
+          {/* ============= TAB: AJUSTES (NUEVO) ============= 
           <Tab eventKey="ajustes" title="🔧 Ajustes">
             <Card className="shadow-sm mb-3">
               <Card.Body>
@@ -1317,7 +1318,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
               </Card.Body>
             </Card>
 
-            {/* Lista de Ajustes */}
+            {/* Lista de Ajustes 
             <Card className="shadow-sm">
               <Card.Body>
                 <h5 className="mb-3">
@@ -1383,7 +1384,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
               </Card.Body>
             </Card>
           </Tab>
-
+*/}
           {/* ============= TAB: VERIFICACIÓN (NUEVO) ============= */}
           <Tab eventKey="verificacion" title="✓ Verificación">
             {/* Verificación de Consistencia */}
@@ -1519,7 +1520,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             </Card>
           </Tab>
 
-          {/* ============= TAB: CONFIGURACIÓN (EXISTENTE) ============= */}
+          {/* ============= TAB: CONFIGURACIÓN (EXISTENTE) ============= 
           <Tab eventKey="configuracion" title="⚙️ Configuración">
             <Card className="shadow-sm">
               <Card.Body>
@@ -1557,7 +1558,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                 </Alert>
               </Card.Body>
             </Card>
-          </Tab>
+          </Tab>*/}
 
         </Tabs>
       </Modal.Body>

@@ -20,6 +20,7 @@ const ConfiguracionSistema = require('./models/ConfiguracionSistema');
 const SaldoProveedor = require('./models/SaldoProveedor');
 const AjusteSaldo = require('./models/AjusteSaldo');
 
+const alertasRoutes = require('./routes/alertas');
 
 
 // ============= CONFIGURAR RELACIONES =============
@@ -83,8 +84,6 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const tiendaRoutes = require('./routes/tiendas');
 const incrementosRoutes = require('./routes/incrementos');
-const alertasRoutes = require('./routes/alertas');
-
 
 require('dotenv').config();
 
