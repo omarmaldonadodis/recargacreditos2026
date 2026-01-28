@@ -521,33 +521,6 @@
   }
 }
 
-/* ============= DARK MODE SUPPORT (opcional) ============= */
-@media (prefers-color-scheme: dark) {
-  .incrementos-modal .modal-content {
-    background-color: #1a1a1a;
-    color: #e0e0e0;
-  }
-
-  .incrementos-modal .form-control,
-  .incrementos-modal .form-select {
-    background-color: #2a2a2a;
-    border-color: #444;
-    color: #e0e0e0;
-  }
-
-  .incrementos-modal .card {
-    background-color: #2a2a2a;
-    border-color: #444;
-  }
-
-  .deposito-selectable:hover {
-    background-color: #333 !important;
-  }
-
-  .reporte-table tbody tr:hover {
-    background-color: #2a2a2a;
-  }
-}
 
 /* ============= UTILIDADES ============= */
 .cursor-pointer {

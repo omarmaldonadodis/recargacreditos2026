@@ -35,15 +35,8 @@ AsignacionDeposito.init({
   modelName: 'AsignacionDeposito'
 });
 
-// Relaciones
-IncrementoSaldo.belongsToMany(Deposito, { 
-  through: AsignacionDeposito,
-  as: 'depositos'
-});
-
-Deposito.belongsToMany(IncrementoSaldo, { 
-  through: AsignacionDeposito,
-  as: 'incrementos'
-});
 
 module.exports = AsignacionDeposito;
+
+
+
