@@ -1,4 +1,4 @@
-// backend/services/contabilidadService.js
+// backend/services/contabilidadService.js - VERSIÓN CORREGIDA
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const SaldoProveedor = require('../models/SaldoProveedor');
@@ -57,6 +57,25 @@ class ContabilidadService {
       
       // Umbral para detectar depósito: > $50
       if (diferencia > 50) {
+        
+        // ⚠️ VERIFICAR SI YA EXISTE UN INCREMENTO SIMILAR (evitar duplicados)
+        const hace5Minutos = new Date(Date.now() - 5 * 60 * 1000);
+        
+        const incrementoExistente = await IncrementoSaldo.findOne({
+          where: {
+            proveedor: 'general',
+            saldoAnterior: saldoAnterior,
+            saldoNuevo: saldoNuevo,
+            diferencia: diferencia,
+            createdAt: { [Op.gte]: hace5Minutos }
+          }
+        });
+        
+        if (incrementoExistente) {
+          console.log(`⚠️ [GENERAL] Incremento duplicado detectado, ignorando (ID existente: ${incrementoExistente.id})`);
+          return null;
+        }
+        
         const incremento = await IncrementoSaldo.create({
           saldoAnterior,
           saldoNuevo,
@@ -66,7 +85,8 @@ class ContabilidadService {
           operadora,
           RecargaId,
           fecha: new Date(),
-          estado: 'pendiente'
+          estado: 'pendiente',
+          notas: `Depósito detectado automáticamente. Ganancia aparente: $${diferencia.toFixed(2)}`
         });
         
         // Registrar evento
@@ -77,7 +97,8 @@ class ContabilidadService {
           detalles: {
             diferencia: diferencia.toFixed(2),
             incrementoId: incremento.id,
-            saldoEsperado: saldoEsperado.toFixed(2)
+            saldoEsperado: saldoEsperado.toFixed(2),
+            porcentajeGanancia: ((diferencia / valor) * 100).toFixed(2) + '%'
           },
           RecargaId,
           IncrementoSaldoId: incremento.id
@@ -107,6 +128,24 @@ class ContabilidadService {
       
       // Si hay depósito grande (> $100)
       if (diferencia > 100) {
+        
+        // Evitar duplicados
+        const hace5Minutos = new Date(Date.now() - 5 * 60 * 1000);
+        const incrementoExistente = await IncrementoSaldo.findOne({
+          where: {
+            proveedor: 'movistar',
+            saldoAnterior: saldoAnterior,
+            saldoNuevo: saldoNuevo,
+            diferencia: diferencia,
+            createdAt: { [Op.gte]: hace5Minutos }
+          }
+        });
+        
+        if (incrementoExistente) {
+          console.log(`⚠️ [MOVISTAR] Incremento duplicado detectado, ignorando`);
+          return null;
+        }
+        
         const incremento = await IncrementoSaldo.create({
           saldoAnterior,
           saldoNuevo,
@@ -116,7 +155,8 @@ class ContabilidadService {
           operadora,
           RecargaId,
           fecha: new Date(),
-          estado: 'pendiente'
+          estado: 'pendiente',
+          notas: `Depósito grande detectado: $${diferencia.toFixed(2)}`
         });
         
         console.log(`🎉 [MOVISTAR] Depósito detectado: $${diferencia.toFixed(2)}`);
@@ -137,6 +177,23 @@ class ContabilidadService {
       
       // Si la diferencia coincide con comisiones (margen ±$10)
       if (Math.abs(diferencia - comisionesRecientes) < 10 && diferencia > 20) {
+        
+        // Evitar duplicados
+        const hace5Minutos = new Date(Date.now() - 5 * 60 * 1000);
+        const incrementoExistente = await IncrementoSaldo.findOne({
+          where: {
+            proveedor: 'movistar',
+            tipoIncremento: 'comisiones_acumuladas',
+            diferencia: { [Op.between]: [diferencia - 5, diferencia + 5] },
+            createdAt: { [Op.gte]: hace5Minutos }
+          }
+        });
+        
+        if (incrementoExistente) {
+          console.log(`⚠️ [MOVISTAR] Comisiones ya registradas, ignorando`);
+          return null;
+        }
+        
         const recargasComision = await Recarga.findAll({
           where: {
             proveedor: 'movistar',
@@ -162,7 +219,8 @@ class ContabilidadService {
           fechaInicioAcumulacion: fechaInicio,
           fechaFinAcumulacion: new Date(),
           fecha: new Date(),
-          estado: 'pendiente'
+          estado: 'pendiente',
+          notas: `Comisiones acumuladas: $${comisionesRecientes.toFixed(2)} de ${recargasComision.length} recargas`
         });
         
         await this.registrarEvento({
@@ -197,145 +255,122 @@ class ContabilidadService {
   }
   
   /**
-   * Calcular ganancias reales por proveedor
+   * Calcular ganancias reales por proveedor (SIMPLIFICADO)
    */
-  // backend/services/contabilidadService.js
-
-async calcularGanancias({ proveedor, startDate, endDate }) {
-  try {
-    // Obtener fecha de inicio del sistema
-    const configFechaInicio = await ConfiguracionSistema.findOne({
-      where: { clave: 'fecha_inicio_contabilidad' }
-    });
-    
-    const fechaInicioSistema = configFechaInicio 
-      ? new Date(configFechaInicio.valor)
-      : null;
-    
-    // Si no hay startDate, usar la fecha de inicio del sistema
-    const fechaInicioPeriodo = startDate 
-      ? new Date(startDate) 
-      : (fechaInicioSistema || new Date('2000-01-01'));
-    
-    const fechaFinPeriodo = endDate ? new Date(endDate) : new Date();
-    
-    const where = { 
-      proveedor,
-      fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
-    };
-    
-    // Total depositado (solo depósitos verificados en el período)
-    const depositos = await Deposito.sum('monto', {
-      where: { 
-        proveedor, 
-        verificado: true,
-        fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
-      }
-    }) || 0;
-    
-    // Saldo actual
-    const ultimaRecarga = await Recarga.findOne({
-      where: { proveedor, saldoGestopago: { [Op.ne]: null } },
-      order: [['fecha', 'DESC']]
-    });
-    const saldoActual = parseFloat(ultimaRecarga?.saldoGestopago || 0);
-    
-    // Saldo inicial del período
-    let saldoInicial = 0;
-    
-    if (fechaInicioSistema && fechaInicioPeriodo <= fechaInicioSistema) {
-      // Si el período incluye el inicio del sistema, usar saldo inicial configurado
-      const configSaldoInicial = await ConfiguracionSistema.findOne({
-        where: { clave: `saldo_inicial_${proveedor}` }
-      });
-      
-      saldoInicial = configSaldoInicial ? parseFloat(configSaldoInicial.valor) : 0;
-      
-    } else {
-      // Obtener saldo al inicio del período
-      const recargaInicial = await Recarga.findOne({
+  async calcularGanancias({ proveedor, startDate, endDate }) {
+    try {
+      // Obtener snapshot inicial (punto de partida)
+      const snapshotInicial = await SaldoProveedor.findOne({
         where: {
           proveedor,
-          saldoGestopago: { [Op.ne]: null },
-          fecha: { [Op.lt]: fechaInicioPeriodo }
+          tipoEvento: 'snapshot_inicial'
         },
-        order: [['fecha', 'DESC']]
+        order: [['fecha', 'ASC']]
       });
       
-      saldoInicial = parseFloat(recargaInicial?.saldoGestopago || 0);
+      let fechaInicioPeriodo, saldoInicial;
+      
+      if (snapshotInicial) {
+        // Usar snapshot como punto de partida
+        fechaInicioPeriodo = startDate 
+          ? new Date(startDate)
+          : new Date(snapshotInicial.fecha);
+        
+        saldoInicial = parseFloat(snapshotInicial.saldo);
+        
+      } else {
+        // Si no hay snapshot, usar primera recarga (modo antiguo)
+        const primeraRecarga = await Recarga.findOne({
+          where: { proveedor, saldoGestopago: { [Op.ne]: null } },
+          order: [['fecha', 'ASC']]
+        });
+        
+        fechaInicioPeriodo = startDate
+          ? new Date(startDate)
+          : (primeraRecarga ? new Date(primeraRecarga.fecha) : new Date());
+        
+        saldoInicial = primeraRecarga ? parseFloat(primeraRecarga.saldoGestopago) : 0;
+      }
+      
+      const fechaFinPeriodo = endDate ? new Date(endDate) : new Date();
+      
+      // Saldo actual
+      const ultimaRecarga = await Recarga.findOne({
+        where: { proveedor, saldoGestopago: { [Op.ne]: null } },
+        order: [['fecha', 'DESC']]
+      });
+      const saldoActual = parseFloat(ultimaRecarga?.saldoGestopago || 0);
+      
+      // Total depositado en el período
+      const depositos = await Deposito.sum('monto', {
+        where: { 
+          proveedor, 
+          verificado: true,
+          fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
+        }
+      }) || 0;
+      
+      // Total recargado en el período
+      const totalRecargado = await Recarga.sum('valor', {
+        where: {
+          proveedor,
+          exitoso: true,
+          fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
+        }
+      }) || 0;
+      
+      // Total comisiones en el período (Movistar)
+      const totalComisiones = await Recarga.sum('comision', {
+        where: {
+          proveedor,
+          exitoso: true,
+          comision: { [Op.ne]: null },
+          fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
+        }
+      }) || 0;
+      
+      let gananciaReal = 0;
+      let formula = '';
+      
+      if (proveedor === 'general') {
+        // General: (Saldo actual + Total recargado) - (Saldo inicial + Total depositado)
+        gananciaReal = (saldoActual + totalRecargado) - (saldoInicial + depositos);
+        formula = '(SaldoActual + Recargado) - (SaldoInicial + Depositado)';
+      } else {
+        // Movistar: Suma de comisiones
+        gananciaReal = totalComisiones;
+        formula = 'Σ Comisiones';
+      }
+      
+      const porcentajeGanancia = depositos > 0
+        ? ((gananciaReal / depositos) * 100).toFixed(2)
+        : '0.00';
+      
+      return {
+        proveedor,
+        saldoInicial: saldoInicial.toFixed(2),
+        totalDepositado: depositos.toFixed(2),
+        totalRecargado: totalRecargado.toFixed(2),
+        saldoActual: saldoActual.toFixed(2),
+        totalComisiones: totalComisiones.toFixed(2),
+        gananciaReal: gananciaReal.toFixed(2),
+        porcentajeGanancia: `${porcentajeGanancia}%`,
+        formula,
+        fechaInicioPeriodo: fechaInicioPeriodo.toISOString().split('T')[0],
+        fechaFinPeriodo: fechaFinPeriodo.toISOString().split('T')[0],
+        tieneSnapshot: !!snapshotInicial
+      };
+    } catch (error) {
+      console.error('Error calculando ganancias:', error);
+      throw error;
     }
-    
-    // Total recargado SOLO en el período
-    const totalRecargado = await Recarga.sum('valor', {
-      where: {
-        proveedor,
-        exitoso: true,
-        fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
-      }
-    }) || 0;
-    
-    // Total comisiones SOLO en el período
-    const totalComisiones = await Recarga.sum('comision', {
-      where: {
-        proveedor,
-        exitoso: true,
-        comision: { [Op.ne]: null },
-        fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
-      }
-    }) || 0;
-    
-    // Incluir incrementos iniciales del sistema en el período
-    const incrementosIniciales = await IncrementoSaldo.sum('diferencia', {
-      where: {
-        proveedor,
-        tipoIncremento: 'deposito_inicial',
-        estado: 'verificado',
-        fecha: { [Op.between]: [fechaInicioPeriodo, fechaFinPeriodo] }
-      }
-    }) || 0;
-    
-    let gananciaReal = 0;
-    let formula = '';
-    
-    if (proveedor === 'general') {
-      // General: (Saldo actual + Total recargado) - (Saldo inicial + Total depositado) + Incrementos iniciales
-      gananciaReal = (saldoActual + totalRecargado) - (saldoInicial + depositos) + incrementosIniciales;
-      formula = '(SaldoActual + Recargado) - (SaldoInicial + Depositado) + IncremInicial';
-    } else {
-      // Movistar: Suma de comisiones + Incrementos iniciales
-      gananciaReal = totalComisiones + incrementosIniciales;
-      formula = 'Σ Comisiones + IncrementosIniciales';
-    }
-    
-    const porcentajeGanancia = (depositos + incrementosIniciales) > 0
-      ? ((gananciaReal / (depositos + incrementosIniciales)) * 100).toFixed(2)
-      : '0.00';
-    
-    return {
-      proveedor,
-      saldoInicial: saldoInicial.toFixed(2),
-      totalDepositado: depositos.toFixed(2),
-      incrementosIniciales: incrementosIniciales.toFixed(2),
-      totalRecargado: totalRecargado.toFixed(2),
-      saldoActual: saldoActual.toFixed(2),
-      totalComisiones: totalComisiones.toFixed(2),
-      gananciaReal: gananciaReal.toFixed(2),
-      porcentajeGanancia: `${porcentajeGanancia}%`,
-      formula,
-      fechaInicioPeriodo: fechaInicioPeriodo.toISOString().split('T')[0],
-      fechaFinPeriodo: fechaFinPeriodo.toISOString().split('T')[0]
-    };
-  } catch (error) {
-    console.error('Error calculando ganancias:', error);
-    throw error;
   }
-}
+  
   /**
    * Crear ajuste manual de saldo
    */
   async crearAjuste({ proveedor, tipoAjuste, saldoNuevo, motivo, detalles, usuarioId }) {
     try {
-      // Obtener saldo actual
       const ultimaRecarga = await Recarga.findOne({
         where: { proveedor, saldoGestopago: { [Op.ne]: null } },
         order: [['fecha', 'DESC']]
@@ -367,143 +402,138 @@ async calcularGanancias({ proveedor, startDate, endDate }) {
   }
   
   /**
-   * Verificar consistencia de saldos
+   * Verificar consistencia de saldos (SIMPLIFICADO)
    */
   // backend/services/contabilidadService.js
-// REEMPLAZAR SOLO ESTE MÉTODO
+// REEMPLAZAR EL MÉTODO: verificarConsistencia
 
+/**
+ * 
+ * EJEMPLO:
+ * Saldo Inicial:     $46,153.50
+ * + Incremento:       $2,166.00  ← Incluye depósito ($2,000) + ganancia ($166)
+ * - Recargas:         $1,420.00
+ * = Saldo Esperado:  $46,899.50  ✅
+ */
 async verificarConsistencia(proveedor) {
   try {
-    // 1. Verificar si existe incremento inicial (depósito inicial del sistema)
-    const incrementoInicial = await IncrementoSaldo.findOne({
-      where: {
-        proveedor,
-        tipoIncremento: 'deposito_inicial',
-        estado: { [Op.in]: ['pendiente', 'asignado', 'verificado'] }
-      },
-      order: [['fecha', 'ASC']] // El primero cronológicamente
+    // 1. Obtener saldo registrado actual
+    const ultimaRecarga = await Recarga.findOne({
+      where: { proveedor, saldoGestopago: { [Op.ne]: null } },
+      order: [['fecha', 'DESC']]
     });
     
-    let saldoRegistrado;
-    let fechaInicio;
+    const saldoRegistrado = parseFloat(ultimaRecarga?.saldoGestopago || 0);
     
-    if (incrementoInicial) {
-      // ===== HAY INCREMENTO INICIAL - USAR COMO SALDO BASE =====
-      console.log(`📸 Usando incremento inicial #${incrementoInicial.id} como base`);
-      
-      saldoRegistrado = parseFloat(incrementoInicial.saldoNuevo);
-      fechaInicio = new Date(incrementoInicial.fecha);
-      
-    } else {
-      // ===== NO HAY INCREMENTO INICIAL - USAR ÚLTIMA RECARGA =====
-      console.log(`📊 No hay incremento inicial, usando última recarga`);
-      
-      const ultimaRecarga = await Recarga.findOne({
-        where: { proveedor, saldoGestopago: { [Op.ne]: null } },
-        order: [['fecha', 'DESC']]
-      });
-      
-      saldoRegistrado = parseFloat(ultimaRecarga?.saldoGestopago || 0);
-      fechaInicio = null;
+    // 2. Obtener snapshot inicial
+    const snapshot = await SaldoProveedor.findOne({
+      where: {
+        proveedor,
+        tipoEvento: 'snapshot_inicial'
+      },
+      order: [['fecha', 'ASC']]
+    });
+    
+    if (!snapshot) {
+      return {
+        proveedor,
+        saldoRegistrado: saldoRegistrado.toFixed(2),
+        saldoEsperado: 'N/A',
+        diferencia: '0.00',
+        consistente: true,
+        detalles: {
+          mensaje: 'Ejecuta el script inicializar-contabilidad-v2.js para establecer punto de partida'
+        }
+      };
     }
     
-    // 2. Calcular saldo esperado
-    let saldoEsperado = saldoRegistrado;
-    let detalles;
+    let saldoEsperado = parseFloat(snapshot.saldo);
+    const fechaSnapshot = new Date(snapshot.fecha);
     
-    if (fechaInicio) {
-      // ===== CÁLCULO DESDE INCREMENTO INICIAL =====
-      
-      // Sumar depósitos DESPUÉS del incremento inicial
-      const depositosPost = await Deposito.sum('monto', {
-        where: {
-          proveedor,
-          verificado: true,
-          fecha: { [Op.gt]: fechaInicio }
-        }
-      }) || 0;
-      
-      saldoEsperado += depositosPost;
-      
-      // Restar recargas DESPUÉS del incremento inicial
-      const recargasPost = await Recarga.sum('valor', {
+    console.log(`[VERIFICACIÓN ${proveedor}] Saldo inicial (snapshot): $${saldoEsperado.toFixed(2)}`);
+    
+    // ⚠️ CORRECCIÓN CRÍTICA: Sumar INCREMENTOS COMPLETOS (no depósitos)
+    // Un incremento de $2,166 incluye: depósito ($2,000) + ganancia ($166)
+    const incrementosAsignados = await IncrementoSaldo.sum('diferencia', {
+      where: {
+        proveedor,
+        estado: 'asignado',
+        fecha: { [Op.gt]: fechaSnapshot }
+      }
+    }) || 0;
+    
+    console.log(`[VERIFICACIÓN ${proveedor}] Incrementos asignados: $${incrementosAsignados.toFixed(2)}`);
+    
+    saldoEsperado += incrementosAsignados;
+    
+    // Restar recargas
+    const recargasPost = await Recarga.sum('valor', {
+      where: {
+        proveedor,
+        exitoso: true,
+        fecha: { [Op.gt]: fechaSnapshot }
+      }
+    }) || 0;
+    
+    console.log(`[VERIFICACIÓN ${proveedor}] Recargas: $${recargasPost.toFixed(2)}`);
+    
+    saldoEsperado -= recargasPost;
+    
+    // Sumar comisiones (solo Movistar)
+    let comisionesPost = 0;
+    if (proveedor === 'movistar') {
+      comisionesPost = await Recarga.sum('comision', {
         where: {
           proveedor,
           exitoso: true,
-          fecha: { [Op.gt]: fechaInicio }
+          comision: { [Op.ne]: null },
+          fecha: { [Op.gt]: fechaSnapshot }
         }
       }) || 0;
       
-      saldoEsperado -= recargasPost;
-      
-      // Sumar comisiones DESPUÉS del incremento inicial (Movistar)
-      let comisionesPost = 0;
-      if (proveedor === 'movistar') {
-        comisionesPost = await Recarga.sum('comision', {
-          where: {
-            proveedor,
-            exitoso: true,
-            comision: { [Op.ne]: null },
-            fecha: { [Op.gt]: fechaInicio }
-          }
-        }) || 0;
-        
-        saldoEsperado += comisionesPost;
-      }
-      
-      detalles = {
-        incrementoInicial: true,
-        incrementoId: incrementoInicial.id,
-        saldoBase: parseFloat(incrementoInicial.saldoNuevo).toFixed(2),
-        fechaInicio: fechaInicio.toLocaleDateString(),
-        depositosDesdeInicio: depositosPost.toFixed(2),
-        recargasDesdeInicio: recargasPost.toFixed(2),
-        comisionesDesdeInicio: comisionesPost.toFixed(2),
-        calculoDesde: 'incremento_inicial',
-        estado: incrementoInicial.estado
-      };
-      
-    } else {
-      // ===== CÁLCULO SIN INCREMENTO INICIAL (TRADICIONAL) =====
-      
-      const primeraRecarga = await Recarga.findOne({
-        where: { proveedor, saldoGestopago: { [Op.ne]: null } },
-        order: [['fecha', 'ASC']]
-      });
-      
-      saldoEsperado = parseFloat(primeraRecarga?.saldoGestopago || 0);
-      
-      const depositos = await Deposito.sum('monto', {
-        where: { proveedor, verificado: true }
-      }) || 0;
-      
-      saldoEsperado += depositos;
-      
-      const totalRecargado = await Recarga.sum('valor', {
-        where: { proveedor, exitoso: true }
-      }) || 0;
-      
-      saldoEsperado -= totalRecargado;
-      
-      if (proveedor === 'movistar') {
-        const totalComisiones = await Recarga.sum('comision', {
-          where: { proveedor, exitoso: true, comision: { [Op.ne]: null } }
-        }) || 0;
-        
-        saldoEsperado += totalComisiones;
-      }
-      
-      detalles = {
-        incrementoInicial: false,
-        saldoInicial: parseFloat(primeraRecarga?.saldoGestopago || 0).toFixed(2),
-        depositosTotales: depositos.toFixed(2),
-        recargasTotales: totalRecargado.toFixed(2),
-        calculoDesde: 'sin_incremento_inicial',
-        nota: 'Ejecuta el script registrar-saldo-inicial.js para establecer punto de partida'
-      };
+      saldoEsperado += comisionesPost;
+      console.log(`[VERIFICACIÓN ${proveedor}] Comisiones: $${comisionesPost.toFixed(2)}`);
     }
     
+    console.log(`[VERIFICACIÓN ${proveedor}] Saldo esperado final: $${saldoEsperado.toFixed(2)}`);
+    console.log(`[VERIFICACIÓN ${proveedor}] Saldo registrado: $${saldoRegistrado.toFixed(2)}`);
+    
     const diferencia = saldoEsperado - saldoRegistrado;
+    
+    console.log(`[VERIFICACIÓN ${proveedor}] Diferencia: $${diferencia.toFixed(2)}`);
+    
+    // Verificar pendientes
+    const incrementosPendientes = await IncrementoSaldo.count({
+      where: {
+        proveedor,
+        estado: 'pendiente',
+        fecha: { [Op.gt]: fechaSnapshot }
+      }
+    });
+    
+    const depositosPendientes = await Deposito.count({
+      where: {
+        proveedor,
+        verificado: true,
+        asignado: false,
+        fecha: { [Op.gt]: fechaSnapshot }
+      }
+    });
+    
+    // Obtener info de depósitos para mostrar en detalles
+    const depositosAsignados = await Deposito.sum('monto', {
+      where: {
+        proveedor,
+        verificado: true,
+        asignado: true,
+        fecha: { [Op.gt]: fechaSnapshot }
+      }
+    }) || 0;
+    
+    // Calcular ganancia real
+    const gananciaReal = incrementosAsignados - depositosAsignados;
+    
+    const hayPendientes = incrementosPendientes > 0 || depositosPendientes > 0;
     
     return {
       proveedor,
@@ -511,8 +541,24 @@ async verificarConsistencia(proveedor) {
       saldoEsperado: saldoEsperado.toFixed(2),
       diferencia: diferencia.toFixed(2),
       consistente: Math.abs(diferencia) < 10,
-      detalles,
-      tieneIncrementoInicial: incrementoInicial !== null
+      incrementosPendientes,
+      depositosPendientes,
+      detalles: {
+        saldoInicial: parseFloat(snapshot.saldo).toFixed(2),
+        incrementosAsignados: incrementosAsignados.toFixed(2),
+        depositosAsignados: depositosAsignados.toFixed(2),
+        gananciaReal: gananciaReal.toFixed(2),
+        recargasTotales: recargasPost.toFixed(2),
+        comisionesTotales: comisionesPost.toFixed(2),
+        fechaSnapshot: fechaSnapshot.toLocaleDateString(),
+        formula: proveedor === 'general' 
+          ? 'Esperado = Inicial + Incrementos - Recargas'
+          : 'Esperado = Inicial + Incrementos - Recargas + Comisiones',
+        nota: hayPendientes 
+          ? `⚠️ Hay ${incrementosPendientes} incremento(s) y ${depositosPendientes} depósito(s) pendientes de asignar.`
+          : '✅ Todos los incrementos y depósitos están asignados.',
+        explicacion: `El cálculo usa incrementos completos ($${incrementosAsignados.toFixed(2)}) que incluyen depósitos ($${depositosAsignados.toFixed(2)}) + ganancia ($${gananciaReal.toFixed(2)})`
+      }
     };
     
   } catch (error) {

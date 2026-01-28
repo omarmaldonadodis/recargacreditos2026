@@ -84,6 +84,7 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const tiendaRoutes = require('./routes/tiendas');
 const incrementosRoutes = require('./routes/incrementos');
+const contabilidadRoutes = require('./routes/contabilidad');
 
 require('dotenv').config();
 
@@ -98,7 +99,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/tiendas', tiendaRoutes);
 app.use('/api/incrementos', incrementosRoutes);
 app.use('/api/alertas', alertasRoutes);
-
+app.use('/api/contabilidad', contabilidadRoutes);
 
 // ============= HEALTH CHECK =============
 app.get('/health', (req, res) => {
@@ -110,6 +111,7 @@ app.get('/health', (req, res) => {
 });
 
 // ============= INICIALIZAR SERVIDOR =============
+
 sequelize.sync({ alter: true }).then(async () => {
   console.log('✅ Base de datos sincronizada');
   console.log('\n📦 Modelos registrados:');
