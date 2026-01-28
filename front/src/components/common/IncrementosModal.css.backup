@@ -1,0 +1,556 @@
+/* IncrementosModal.css - Estilos adicionales opcionales */
+
+/* ============= MODAL GENERAL ============= */
+.incrementos-modal .modal-dialog {
+  max-width: 95%;
+  margin: 1.75rem auto;
+}
+
+.incrementos-modal .modal-body {
+  padding: 1.5rem;
+}
+
+/* ============= TABS ============= */
+.incrementos-modal .nav-tabs {
+  border-bottom: 2px solid #009bdc;
+  margin-bottom: 1.5rem;
+}
+
+.incrementos-modal .nav-tabs .nav-link {
+  color: #666;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.incrementos-modal .nav-tabs .nav-link:hover {
+  color: #009bdc;
+  border-bottom-color: #009bdc;
+  background-color: transparent;
+}
+
+.incrementos-modal .nav-tabs .nav-link.active {
+  color: #009bdc;
+  border-bottom-color: #009bdc;
+  background-color: transparent;
+  font-weight: 600;
+}
+
+/* ============= CARDS ============= */
+.incremento-card {
+  border-left: 4px solid #ffc107;
+  transition: all 0.3s ease;
+}
+
+.incremento-card:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.deposito-card {
+  border-left: 4px solid #28a745;
+}
+
+.reporte-card {
+  border-left: 4px solid #007bff;
+}
+
+/* ============= BADGES ============= */
+.badge-incremento {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.badge-proveedor {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.badge-pendiente {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.badge-asignado {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* ============= LISTA DE DEPÓSITOS SELECCIONABLES ============= */
+.deposito-selectable {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border-left: 3px solid transparent !important;
+}
+
+.deposito-selectable:hover {
+  background-color: #f8f9fa !important;
+  border-left-color: #009bdc !important;
+}
+
+.deposito-selectable.active {
+  background-color: #e3f2fd !important;
+  border-left-color: #009bdc !important;
+  font-weight: 600;
+}
+
+/* ============= RESUMEN FINANCIERO ============= */
+.resumen-financiero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  margin: 1rem 0;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.resumen-financiero .resumen-item {
+  text-align: center;
+  padding: 1rem;
+}
+
+.resumen-financiero .resumen-label {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.resumen-financiero .resumen-valor {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+.resumen-ganancia {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+/* ============= CARDS DE ESTADÍSTICAS ============= */
+.stat-card {
+  border: none;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stat-card-success {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+}
+
+.stat-card-info {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.stat-card-warning {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: white;
+}
+
+.stat-card .stat-icon {
+  font-size: 2.5rem;
+  opacity: 0.3;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+/* ============= TABLA DE REPORTES ============= */
+.reporte-table {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.reporte-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.reporte-table thead th {
+  border: none;
+  padding: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.85rem;
+}
+
+.reporte-table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.reporte-table tbody tr:hover {
+  background-color: #f8f9fa;
+  transform: scale(1.01);
+}
+
+/* ============= FORMULARIOS ============= */
+.form-control:focus,
+.form-select:focus {
+  border-color: #009bdc;
+  box-shadow: 0 0 0 0.2rem rgba(0, 155, 220, 0.25);
+}
+
+.form-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+/* ============= BOTONES ============= */
+.btn-incrementos {
+  border-radius: 8px;
+  padding: 0.6rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.btn-incrementos:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-success-gradient {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+}
+
+.btn-danger-gradient {
+  background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+  color: white;
+}
+
+/* ============= ALERTAS ============= */
+.alert {
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.alert-success {
+  background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+  color: #155724;
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  color: #721c24;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fff720 0%, #ffd700 100%);
+  color: #856404;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+  color: #0c5460;
+}
+
+/* ============= SPINNERS ============= */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border-radius: 10px;
+}
+
+/* ============= ANIMACIONES ============= */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.4s ease;
+}
+
+/* ============= SWITCH DE CONFIGURACIÓN ============= */
+.form-switch .form-check-input {
+  width: 3rem;
+  height: 1.5rem;
+  cursor: pointer;
+}
+
+.form-switch .form-check-input:checked {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.form-switch .form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+/* ============= TOOLTIP PERSONALIZADO ============= */
+.custom-tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-tooltip .tooltip-text {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.85rem;
+}
+
+.custom-tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+
+
+  /* ============= ESTILOS ADICIONALES PARA NUEVAS FUNCIONALIDADES ============= */
+
+/* Alertas con prioridad */
+.alerta-urgente {
+  border-left: 5px solid #dc3545;
+  animation: pulse 2s infinite;
+}
+
+.alerta-media {
+  border-left: 5px solid #ffc107;
+}
+
+.alerta-baja {
+  border-left: 5px solid #17a2b8;
+}
+
+/* Verificación de consistencia */
+.verificacion-exitosa {
+  background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+  padding: 2rem;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(150, 230, 161, 0.4);
+}
+
+.verificacion-error {
+  background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+  padding: 2rem;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(252, 74, 26, 0.4);
+  color: white;
+}
+
+/* Historial de eventos */
+.evento-timeline {
+  position: relative;
+  padding-left: 30px;
+}
+
+.evento-timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+}
+
+.evento-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.evento-item::before {
+  content: '●';
+  position: absolute;
+  left: -24px;
+  top: 5px;
+  color: #667eea;
+  font-size: 20px;
+}
+
+/* Progress bars personalizadas */
+.progress-ganancia {
+  height: 30px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.progress-ganancia .progress-bar {
+  background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Cards de ajustes */
+.ajuste-card {
+  transition: all 0.3s ease;
+  border-left: 4px solid #ffc107;
+}
+
+.ajuste-card:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Badges con animación */
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.badge-animated {
+  animation: badge-pulse 2s infinite;
+}
+
+/* Tooltips mejorados */
+.tooltip-custom {
+  position: relative;
+  cursor: help;
+}
+
+.tooltip-custom:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: #333;
+  color: white;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 1000;
+  font-size: 0.85rem;
+}
+
+/* Responsive adicional */
+@media (max-width: 768px) {
+  .stat-card {
+    margin-bottom: 1rem;
+  }
+
+  .resumen-financiero .resumen-valor {
+    font-size: 1.2rem;
+  }
+
+  .incrementos-modal .modal-body {
+    padding: 1rem;
+  }
+}
+  
+
+/* ============= RESPONSIVE ============= */
+@media (max-width: 768px) {
+  .incrementos-modal .modal-dialog {
+    max-width: 100%;
+    margin: 0.5rem;
+  }
+
+  .resumen-financiero .resumen-valor {
+    font-size: 1.4rem;
+  }
+
+  .stat-card .stat-icon {
+    font-size: 1.8rem;
+  }
+
+  .reporte-table {
+    font-size: 0.85rem;
+  }
+
+  .btn-incrementos {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+
+/* ============= UTILIDADES ============= */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.shadow-soft {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-medium {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+}
+
+.shadow-strong {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.18);
+}
+
+.border-gradient {
+  border: 2px solid transparent;
+  background-image: 
+    linear-gradient(white, white), 
+    linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}

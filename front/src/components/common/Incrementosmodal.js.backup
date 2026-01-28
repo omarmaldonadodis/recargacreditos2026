@@ -1,11 +1,9 @@
-// front/src/components/common/IncrementosModal.js - VERSIÓN COMPLETA UNIFICADA
+// front/src/components/common/IncrementosModal.js - VERSIÓN COMPLETA
 import React, { useState, useEffect } from 'react';
 import { 
   Modal, Tabs, Tab, Badge, Button, Form, Table, Alert, 
-  Spinner, Card, Row, Col, ListGroup, Accordion
+  Spinner, Card, Row, Col, ListGroup, ProgressBar 
 } from 'react-bootstrap';
-import * as XLSX from 'xlsx';
-import moment from 'moment-timezone';
 import api from '../../services/axiosConfig';
 import './IncrementosModal.css';
 
@@ -16,6 +14,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
   // ============= ESTADOS EXISTENTES =============
   const [incrementos, setIncrementos] = useState([]);
   const [selectedIncremento, setSelectedIncremento] = useState(null);
+  const [depositos, setDepositos] = useState([]);
   const [nuevoDeposito, setNuevoDeposito] = useState({
     monto: '',
     usuarioId: '',
@@ -27,24 +26,34 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
   const [depositosDisponibles, setDepositosDisponibles] = useState([]);
   const [depositosSeleccionados, setDepositosSeleccionados] = useState([]);
   const [notasAsignacion, setNotasAsignacion] = useState('');
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
+  const [deteccionHabilitada, setDeteccionHabilitada] = useState(false);
   const [incrementoMaximo, setIncrementoMaximo] = useState(0);
   
+  // ============= NUEVOS ESTADOS =============
   // Alertas
   const [alertas, setAlertas] = useState([]);
   const [estadisticasAlertas, setEstadisticasAlertas] = useState(null);
   
-  // ============= ESTADOS PARA REPORTES =============
-  const [reporte, setReporte] = useState(null);
-  const [fechaMinima, setFechaMinima] = useState('2026-01-27');
-  const [fechaMaxima, setFechaMaxima] = useState(null);
-  const [fechaInicio, setFechaInicio] = useState('2026-01-27');
-  const [fechaFin, setFechaFin] = useState(null);
-  const [reporteError, setReporteError] = useState(null);
+  // Reportes mejorados
+  const [reporteGanancias, setReporteGanancias] = useState(null);
+  const [dashboard, setDashboard] = useState(null);
+  
+  // Ajustes
+  const [ajustes, setAjustes] = useState([]);
+  const [nuevoAjuste, setNuevoAjuste] = useState({
+    tipoAjuste: 'correccion_saldo',
+    saldoNuevo: '',
+    motivo: '',
+    detalles: ''
+  });
+  
+  // Verificación
+  const [verificacionConsistencia, setVerificacionConsistencia] = useState(null);
+  const [historialEventos, setHistorialEventos] = useState([]);
   
   const [alert, setAlert] = useState({ show: false, message: '', variant: '' });
-
-  // ===== ZONA HORARIA =====
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // ============= EFECTOS =============
   useEffect(() => {
@@ -52,13 +61,6 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
       cargarDatos();
     }
   }, [show, proveedor, activeTab]);
-
-  // Inicializar fechas para reportes
-  useEffect(() => {
-    const hoy = new Date().toISOString().split('T')[0];
-    setFechaMaxima(hoy);
-    setFechaFin(hoy);
-  }, []);
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -81,7 +83,17 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
           await cargarDepositosDisponibles();
           break;
         case 'reportes':
-          await cargarReporteCompleto();
+          await cargarDashboard();
+          break;
+        case 'ajustes':
+          await cargarAjustes();
+          break;
+        case 'verificacion':
+          await cargarVerificacionConsistencia();
+          await cargarHistorialEventos();
+          break;
+        case 'configuracion':
+          await cargarConfiguracion();
           break;
       }
     } catch (error) {
@@ -91,14 +103,17 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     }
   };
 
-  // ============= FUNCIONES DE CARGA EXISTENTES =============
+  // ============= FUNCIONES DE CARGA - NUEVAS =============
   
   const cargarAlertas = async () => {
     try {
       const response = await api.get('/alertas');
+      
+      // Filtrar alertas por proveedor
       const alertasFiltradas = response.data.alertas.filter(
         alerta => alerta.proveedor === proveedor
       );
+      
       setAlertas(alertasFiltradas);
     } catch (error) {
       console.error('Error al cargar alertas:', error);
@@ -114,6 +129,48 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     }
   };
 
+  const cargarDashboard = async () => {
+    try {
+      const response = await api.get('/incrementos/dashboard');
+      setDashboard(response.data);
+    } catch (error) {
+      console.error('Error al cargar dashboard:', error);
+    }
+  };
+
+  const cargarAjustes = async () => {
+    try {
+      const response = await api.get('/incrementos/ajustes', {
+        params: { proveedor }
+      });
+      setAjustes(response.data);
+    } catch (error) {
+      console.error('Error al cargar ajustes:', error);
+    }
+  };
+
+  const cargarVerificacionConsistencia = async () => {
+    try {
+      const response = await api.get(`/incrementos/verificar-consistencia/${proveedor}`);
+      setVerificacionConsistencia(response.data);
+    } catch (error) {
+      console.error('Error al verificar consistencia:', error);
+    }
+  };
+
+  const cargarHistorialEventos = async () => {
+    try {
+      const response = await api.get(`/incrementos/historial-eventos/${proveedor}`, {
+        params: { limite: 20 }
+      });
+      setHistorialEventos(response.data);
+    } catch (error) {
+      console.error('Error al cargar historial:', error);
+    }
+  };
+
+  // ============= FUNCIONES EXISTENTES =============
+  
   const cargarIncrementos = async () => {
     try {
       const response = await api.get('/incrementos/notificaciones', {
@@ -170,238 +227,13 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     }
   };
 
-  // ============= FUNCIÓN PARA CARGAR REPORTE COMPLETO =============
-  
-  const cargarReporteCompleto = async () => {
-    setReporteError(null);
+  const cargarConfiguracion = async () => {
     try {
-      const params = new URLSearchParams({
-        proveedor,
-        fechaInicio: fechaInicio || '2026-01-27',
-        fechaFin: fechaFin || new Date().toISOString().split('T')[0],
-        timezone
-      });
-
-      const response = await api.get(`/contabilidad/reporte-completo?${params}`);
-      setReporte(response.data);
-
-      if (response.data.limitesCalendario) {
-        setFechaMinima(response.data.limitesCalendario.fechaMinima);
-        setFechaMaxima(response.data.limitesCalendario.fechaMaxima);
-      }
-    } catch (err) {
-      console.error('Error cargando reporte:', err);
-      setReporteError(err.response?.data?.error || err.message);
+      const response = await api.get('/incrementos/configuracion/deteccion');
+      setDeteccionHabilitada(response.data.habilitada || false);
+    } catch (error) {
+      console.error('Error al cargar configuración:', error);
     }
-  };
-
-  // ============= FUNCIÓN PARA EXPORTAR EXCEL =============
-  
-  const exportarExcel = () => {
-    if (!reporte) return;
-
-    const wb = XLSX.utils.book_new();
-
-    // HOJA 1: RESUMEN con formato mejorado
-    const resumenData = [
-      ['REPORTE DE CONTABILIDAD - GESTOPAGO'],
-      ['Proveedor:', proveedor.toUpperCase()],
-      ['Periodo:', `${reporte.periodo.fechaInicio} a ${reporte.periodo.fechaFin}`],
-      ['Generado:', reporte.metadata.generadoEn],
-      [],
-      ['SALDOS'],
-      ['Saldo Inicial:', reporte.saldos.inicial],
-      ['Saldo Final Real:', reporte.saldos.finalReal],
-      ['Diferencia:', reporte.saldos.diferencia],
-      ['Estado:', reporte.saldos.consistente ? 'Consistente' : 'Inconsistente'],
-      [],
-      ['TOTALES'],
-      ['Incrementos:', reporte.totales.incrementos],
-      ['Depositado:', reporte.totales.depositosAsignados],
-      ['Recargado:', reporte.totales.recargas],
-      ['Ganancia Real:', reporte.totales.incrementos === 0 ? 0 : reporte.totales.gananciaReal],
-      ['Porcentaje:', reporte.totales.incrementos === 0 ? 0 : reporte.totales.porcentajeGanancia / 100],
-      [],
-      ['NOTA:', reporte.totales.incrementos === 0 ? 'No hay incrementos en este periodo' : '']
-    ];
-
-    const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
-    
-    // Aplicar formato de número a las celdas de dinero
-    if (!wsResumen['!cols']) wsResumen['!cols'] = [];
-    wsResumen['!cols'][0] = { wch: 25 };
-    wsResumen['!cols'][1] = { wch: 20 };
-    
-    // Formato de moneda para celdas específicas
-    ['B7', 'B8', 'B9', 'B13', 'B14', 'B15', 'B16'].forEach(cell => {
-      if (wsResumen[cell]) {
-        wsResumen[cell].t = 'n'; // tipo número
-        wsResumen[cell].z = '"$"#,##0.00'; // formato moneda
-      }
-    });
-    
-    // Formato de porcentaje
-    if (wsResumen['B17']) {
-      wsResumen['B17'].t = 'n';
-      wsResumen['B17'].z = '0.00%';
-    }
-    
-    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
-
-    // HOJA 2: INCREMENTOS con formato
-    if (reporte.detalles.incrementos.length > 0) {
-      const incrementosHeaders = [
-        'ID', 'Fecha', 'Tipo', 'Incremento', 'Depósitos', 'Ganancia', 'Porcentaje', 'Estado'
-      ];
-      
-      const incrementosData = reporte.detalles.incrementos.map(inc => [
-        inc.id,
-        inc.fecha,
-        inc.tipo,
-        inc.incremento,
-        inc.depositosAsociados,
-        inc.ganancia,
-        inc.porcentaje / 100, // Convertir a decimal para formato porcentaje
-        inc.estado
-      ]);
-
-      const wsIncrementos = XLSX.utils.aoa_to_sheet([
-        incrementosHeaders,
-        ...incrementosData
-      ]);
-
-      // Configurar anchos de columna
-      wsIncrementos['!cols'] = [
-        { wch: 5 },  // ID
-        { wch: 18 }, // Fecha
-        { wch: 20 }, // Tipo
-        { wch: 12 }, // Incremento
-        { wch: 12 }, // Depósitos
-        { wch: 12 }, // Ganancia
-        { wch: 12 }, // Porcentaje
-        { wch: 12 }  // Estado
-      ];
-      
-      // Aplicar formato de moneda a columnas D, E, F (Incremento, Depósitos, Ganancia)
-      const filas = incrementosData.length;
-      for (let i = 2; i <= filas + 1; i++) {
-        ['D', 'E', 'F'].forEach(col => {
-          const cell = `${col}${i}`;
-          if (wsIncrementos[cell]) {
-            wsIncrementos[cell].t = 'n';
-            wsIncrementos[cell].z = '"$"#,##0.00';
-          }
-        });
-        
-        // Formato porcentaje para columna G
-        const cellG = `G${i}`;
-        if (wsIncrementos[cellG]) {
-          wsIncrementos[cellG].t = 'n';
-          wsIncrementos[cellG].z = '0.00%';
-        }
-      }
-
-      XLSX.utils.book_append_sheet(wb, wsIncrementos, 'Incrementos');
-    }
-
-    // HOJA 3: DEPÓSITOS con formato
-    if (reporte.detalles.depositos.length > 0) {
-      const depositosHeaders = [
-        'ID', 'Fecha', 'Monto', 'Método', 'Usuario', 'Asignado'
-      ];
-      
-      const depositosData = reporte.detalles.depositos.map(dep => [
-        dep.id,
-        dep.fecha,
-        dep.monto,
-        dep.metodoPago || '-',
-        dep.usuario || '-',
-        dep.asignado ? 'Sí' : 'No'
-      ]);
-
-      const wsDepositos = XLSX.utils.aoa_to_sheet([
-        depositosHeaders,
-        ...depositosData
-      ]);
-
-      wsDepositos['!cols'] = [
-        { wch: 5 },  // ID
-        { wch: 18 }, // Fecha
-        { wch: 12 }, // Monto
-        { wch: 15 }, // Método
-        { wch: 20 }, // Usuario
-        { wch: 10 }  // Asignado
-      ];
-      
-      // Formato de moneda para columna C (Monto)
-      const filasD = depositosData.length;
-      for (let i = 2; i <= filasD + 1; i++) {
-        const cell = `C${i}`;
-        if (wsDepositos[cell]) {
-          wsDepositos[cell].t = 'n';
-          wsDepositos[cell].z = '"$"#,##0.00';
-        }
-      }
-
-      XLSX.utils.book_append_sheet(wb, wsDepositos, 'Depósitos');
-    }
-
-    // HOJA 4: RECARGAS con formato
-    if (reporte.detalles.recargas.length > 0) {
-      const recargasHeaders = [
-        'Fecha', 'Número', 'Valor', 'Comisión', 'Saldo Nuevo', 'Exitoso'
-      ];
-      
-      const recargasData = reporte.detalles.recargas.map(rec => [
-        rec.fecha,
-        rec.numeroRecarga || '-',
-        rec.valor,
-        rec.comision,
-        rec.saldoNuevo || 0,
-        rec.exitoso ? 'Sí' : 'No'
-      ]);
-
-      const wsRecargas = XLSX.utils.aoa_to_sheet([
-        recargasHeaders,
-        ...recargasData
-      ]);
-
-      wsRecargas['!cols'] = [
-        { wch: 18 }, // Fecha
-        { wch: 15 }, // Número
-        { wch: 10 }, // Valor
-        { wch: 10 }, // Comisión
-        { wch: 12 }, // Saldo Nuevo
-        { wch: 10 }  // Exitoso
-      ];
-      
-      // Formato de moneda para columnas C, D, E (Valor, Comisión, Saldo)
-      const filasR = recargasData.length;
-      for (let i = 2; i <= filasR + 1; i++) {
-        ['C', 'D', 'E'].forEach(col => {
-          const cell = `${col}${i}`;
-          if (wsRecargas[cell]) {
-            wsRecargas[cell].t = 'n';
-            wsRecargas[cell].z = '"$"#,##0.00';
-          }
-        });
-      }
-
-      XLSX.utils.book_append_sheet(wb, wsRecargas, 'Recargas');
-    }
-
-    const nombreArchivo = `Reporte_${proveedor}_${fechaInicio}_${fechaFin}.xlsx`;
-    XLSX.writeFile(wb, nombreArchivo);
-  };
-
-  // ============= FUNCIÓN PARA FORMATEAR MONEDA =============
-  
-  const formatearMoneda = (valor) => {
-    return new Intl.NumberFormat('es-EC', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(valor);
   };
 
   const mostrarAlerta = (message, variant = 'success') => {
@@ -409,7 +241,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     setTimeout(() => setAlert({ show: false, message: '', variant: '' }), 5000);
   };
 
-  // ============= HANDLERS EXISTENTES =============
+  // ============= HANDLERS - DEPÓSITOS =============
   
   const handleRegistrarDeposito = async (e) => {
     e.preventDefault();
@@ -481,6 +313,8 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     }
   };
 
+  // ============= HANDLERS - ASIGNACIÓN =============
+  
   const toggleDepositoSeleccionado = (depositoId) => {
     setDepositosSeleccionados(prev => {
       if (prev.includes(depositoId)) {
@@ -560,6 +394,127 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     }
   };
 
+  const handleVerificarIncremento = async (incrementoId) => {
+    setLoading(true);
+    try {
+      await api.post(`/incrementos/incrementos/${incrementoId}/verificar`, {
+        notas: 'Verificado desde el panel'
+      });
+      mostrarAlerta('Incremento verificado', 'success');
+      await cargarIncrementos();
+      await cargarAlertas();
+    } catch (error) {
+      mostrarAlerta('Error al verificar', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============= HANDLERS - REPORTES =============
+  
+  const handleGenerarReporte = async () => {
+    if (!fechaInicio || !fechaFin) {
+      mostrarAlerta('Selecciona ambas fechas', 'warning');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.get('/incrementos/reportes/ganancias', {
+        params: {
+          proveedor,
+          startDate: fechaInicio,
+          endDate: fechaFin
+        }
+      });
+      setReporteGanancias(response.data[proveedor]);
+    } catch (error) {
+      mostrarAlerta('Error al generar reporte', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============= HANDLERS - AJUSTES =============
+  
+  const handleCrearAjuste = async (e) => {
+    e.preventDefault();
+    
+    setLoading(true);
+    try {
+      await api.post('/incrementos/ajustes', {
+        proveedor,
+        ...nuevoAjuste,
+        saldoNuevo: parseFloat(nuevoAjuste.saldoNuevo)
+      });
+      
+      mostrarAlerta('Ajuste creado exitosamente', 'success');
+      setNuevoAjuste({
+        tipoAjuste: 'correccion_saldo',
+        saldoNuevo: '',
+        motivo: '',
+        detalles: ''
+      });
+      await cargarAjustes();
+    } catch (error) {
+      mostrarAlerta('Error al crear ajuste', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAprobarAjuste = async (ajusteId) => {
+    if (!window.confirm('¿Aprobar este ajuste?')) return;
+    
+    setLoading(true);
+    try {
+      await api.put(`/incrementos/ajustes/${ajusteId}/aprobar`);
+      mostrarAlerta('Ajuste aprobado', 'success');
+      await cargarAjustes();
+      await cargarVerificacionConsistencia();
+    } catch (error) {
+      mostrarAlerta('Error al aprobar ajuste', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============= HANDLERS - VERIFICACIÓN =============
+  
+  const handleVerificarSaldo = async () => {
+    setLoading(true);
+    try {
+      await api.post(`/incrementos/verificar-saldo/${proveedor}`);
+      mostrarAlerta('Saldo verificado', 'success');
+      await cargarVerificacionConsistencia();
+      await cargarHistorialEventos();
+    } catch (error) {
+      mostrarAlerta('Error al verificar saldo', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============= HANDLERS - CONFIGURACIÓN =============
+  
+  const handleToggleDeteccion = async () => {
+    setLoading(true);
+    try {
+      await api.post('/incrementos/configuracion/deteccion', {
+        habilitada: !deteccionHabilitada
+      });
+      setDeteccionHabilitada(!deteccionHabilitada);
+      mostrarAlerta(
+        `Detección ${!deteccionHabilitada ? 'activada' : 'desactivada'}`,
+        'success'
+      );
+    } catch (error) {
+      mostrarAlerta('Error al cambiar configuración', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ============= UTILIDADES =============
   
   const getUrgenciaColor = (urgencia) => {
@@ -587,11 +542,8 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     <Modal show={show} onHide={handleClose} size="xl" centered className="incrementos-modal">
       <Modal.Header closeButton>
         <Modal.Title>
-          📊 Gestión de Contabilidad
-          <Badge 
-            bg={proveedor === 'general' ? 'primary' : 'success'} 
-            className="ms-3"
-          >
+          Gestión Completa de Contabilidad -{' '}
+          <Badge bg={proveedor === 'general' ? 'primary' : 'success'}>
             {proveedor === 'general' ? 'General (2611)' : 'Movistar (2612)'}
           </Badge>
         </Modal.Title>
@@ -621,6 +573,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
               </div>
             ) : (
               <>
+                {/* Estadísticas de Alertas */}
                 {estadisticasAlertas && (
                   <Row className="mb-4">
                     <Col md={3}>
@@ -658,6 +611,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                   </Row>
                 )}
 
+                {/* Lista de Alertas */}
                 {alertas.length === 0 ? (
                   <Alert variant="success">
                     ✅ No hay alertas pendientes para <strong>{proveedor === 'general' ? 'General' : 'Movistar'}</strong>
@@ -716,7 +670,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             )}
           </Tab>
 
-          {/* ============= TAB: INCREMENTOS ============= */}
+          {/* ============= TAB: NOTIFICACIONES (EXISTENTE MEJORADO) ============= */}
           <Tab 
             eventKey="notificaciones" 
             title={
@@ -756,6 +710,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                               <strong>Operadora:</strong> {inc.operadora}
                             </p>
                             
+                            {/* Mostrar comisiones si es Movistar */}
                             {inc.comisionAcumulada && (
                               <Alert variant="info" className="mt-2 mb-2 py-2">
                                 💰 Comisiones acumuladas: <strong>${parseFloat(inc.comisionAcumulada).toFixed(2)}</strong>
@@ -791,6 +746,14 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                             >
                               ✅ Asignar Depósitos
                             </Button>
+                            {/* <Button 
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={() => handleVerificarIncremento(inc.id)}
+                            >
+                              ✓ Verificar
+                            </Button>
+                             */}
                             <Button 
                               variant="outline-secondary"
                               size="sm"
@@ -808,7 +771,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             )}
           </Tab>
 
-          {/* ============= TAB: DEPÓSITOS ============= */}
+          {/* ============= TAB: DEPÓSITOS (EXISTENTE MEJORADO) ============= */}
           <Tab eventKey="depositos" title="💵 Depósitos">
             <Card className="shadow-sm deposito-card">
               <Card.Body>
@@ -966,7 +929,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             </Card>
           </Tab>
 
-          {/* ============= TAB: ASIGNAR ============= */}
+          {/* ============= TAB: ASIGNAR (EXISTENTE) ============= */}
           <Tab eventKey="asignar" title="🔗 Asignar">
             {!selectedIncremento ? (
               <Alert variant="warning">
@@ -1118,391 +1081,484 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             )}
           </Tab>
 
-          {/* ============= TAB: REPORTES Y VERIFICACIÓN (TODO EN UNO) ============= */}
-          <Tab eventKey="reportes" title="📊 Reportes & Verificación">
-            
-            {/* CONTROLES */}
-            <Card className="mb-3 shadow-sm">
+          {/* ============= TAB: REPORTES (MEJORADO) ============= */}
+          <Tab eventKey="reportes" title="📊 Reportes">
+            {/* Dashboard */}
+            {dashboard && dashboard[proveedor] && (
+              <Row className="mb-4">
+                <Col md={3}>
+                  <Card className="stat-card stat-card-primary text-center">
+                    <Card.Body>
+                      <div className="stat-icon">💰</div>
+                      <h3>${dashboard[proveedor].saldoActual}</h3>
+                      <small>Saldo Actual</small>
+                      <div className="mt-2">
+                        <small className="text-white-50">
+                          {dashboard[proveedor].ultimaActualizacion 
+                            ? new Date(dashboard[proveedor].ultimaActualizacion).toLocaleString()
+                            : '-'}
+                        </small>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col md={3}>
+                  <Card className="stat-card stat-card-warning text-center">
+                    <Card.Body>
+                      <div className="stat-icon">⏳</div>
+                      <h3>${dashboard[proveedor].depositosPendientes}</h3>
+                      <small>Depósitos Pendientes</small>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col md={3}>
+                  <Card className="stat-card stat-card-info text-center">
+                    <Card.Body>
+                      <div className="stat-icon">🔔</div>
+                      <h3>{dashboard[proveedor].incrementosPendientes}</h3>
+                      <small>Incrementos Pendientes</small>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col md={3}>
+                  <Card className="stat-card stat-card-success text-center">
+                    <Card.Body>
+                      <div className="stat-icon">💵</div>
+                      <h3>
+                        {dashboard[proveedor].comisionesHoy 
+                          ? `$${dashboard[proveedor].comisionesHoy}`
+                          : '-'}
+                      </h3>
+                      <small>Comisiones Hoy</small>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+            )}
+
+            {/* Generador de Reportes */}
+            <Card className="shadow-sm reporte-card mb-3">
               <Card.Body>
-                <Row className="align-items-end">
-                  <Col md={3}>
+                <h5 className="mb-3">
+                  Generar Reporte de Ganancias Reales -{' '}
+                  <Badge bg={proveedor === 'general' ? 'primary' : 'success'}>
+                    {proveedor === 'general' ? 'General' : 'Movistar'}
+                  </Badge>
+                </h5>
+                <Row>
+                  <Col md={4}>
                     <Form.Group>
-                      <Form.Label className="small fw-bold">Fecha Inicio</Form.Label>
+                      <Form.Label>Fecha Inicio</Form.Label>
                       <Form.Control
                         type="date"
-                        size="sm"
                         value={fechaInicio}
-                        min={fechaMinima}
-                        max={fechaMaxima}
                         onChange={(e) => setFechaInicio(e.target.value)}
                       />
                     </Form.Group>
                   </Col>
-                  <Col md={3}>
+                  <Col md={4}>
                     <Form.Group>
-                      <Form.Label className="small fw-bold">Fecha Fin</Form.Label>
+                      <Form.Label>Fecha Fin</Form.Label>
                       <Form.Control
                         type="date"
-                        size="sm"
                         value={fechaFin}
-                        min={fechaInicio}
-                        max={fechaMaxima}
                         onChange={(e) => setFechaFin(e.target.value)}
                       />
                     </Form.Group>
                   </Col>
-                  <Col md={3}>
+                  <Col md={4} className="d-flex align-items-end">
                     <Button 
-                      variant="primary"
-                      size="sm"
-                      className="w-100 btn-incrementos btn-primary-gradient"
-                      onClick={cargarReporteCompleto}
+                      onClick={handleGenerarReporte} 
                       disabled={loading}
+                      className="btn-incrementos btn-primary-gradient w-100"
                     >
-                      {loading ? <Spinner size="sm" /> : '🔄 Generar Reporte'}
-                    </Button>
-                  </Col>
-                  <Col md={3}>
-                    <Button 
-                      variant="success"
-                      size="sm"
-                      className="w-100 btn-incrementos btn-success-gradient"
-                      onClick={exportarExcel}
-                      disabled={!reporte || loading}
-                    >
-                      📥 Exportar Excel
+                      {loading ? <Spinner size="sm" /> : '📊 Generar Reporte'}
                     </Button>
                   </Col>
                 </Row>
               </Card.Body>
             </Card>
 
-            {/* ERROR */}
-            {reporteError && (
-              <Alert variant="danger">
-                <strong>Error:</strong> {reporteError}
-                <Button 
-                  size="sm" 
-                  variant="outline-danger" 
-                  className="ms-3"
-                  onClick={cargarReporteCompleto}
-                >
-                  Reintentar
-                </Button>
-              </Alert>
-            )}
-
-            {/* LOADING */}
-            {loading && !reporte && (
-              <div className="text-center py-5">
-                <Spinner animation="border" variant="primary" />
-                <p className="mt-3 text-muted">Generando reporte...</p>
-              </div>
-            )}
-
-            {/* REPORTE */}
-            {reporte && (
-              <>
-                {/* MÉTRICAS PRINCIPALES */}
-                <Row className="mb-3">
-                  <Col md={3}>
-                    <Card className={`text-center shadow-sm ${reporte.saldos.consistente ? 'stat-card-success' : 'stat-card-warning'}`}>
-                      <Card.Body className="py-3">
-                        <div className="fs-1">{reporte.saldos.consistente ? '✅' : '⚠️'}</div>
-                        <h6 className="mb-0 text-white">{reporte.saldos.consistente ? 'Consistente' : 'Revisar'}</h6>
-                        {!reporte.saldos.consistente && (
-                          <small className="text-white-50">Dif: {formatearMoneda(reporte.saldos.diferencia)}</small>
-                        )}
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col md={3}>
-                    <Card className="text-center shadow-sm stat-card-primary">
-                      <Card.Body className="py-3">
-                        <h4 className="mb-0 text-white">{formatearMoneda(reporte.saldos.finalReal)}</h4>
-                        <small className="text-white-50">Saldo Actual</small>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col md={3}>
-                    <Card className={`text-center shadow-sm ${
-                      reporte.totales.incrementos === 0 ? 'stat-card-info' : 
-                      reporte.totales.gananciaReal >= 0 ? 'stat-card-success' : 'stat-card-warning'
-                    }`}>
-                      <Card.Body className="py-3">
-                        {reporte.totales.incrementos === 0 ? (
-                          <>
-                            <h4 className="mb-0 text-white">-</h4>
-                            <small className="text-white-50">Sin incrementos en el periodo</small>
-                          </>
-                        ) : (
-                          <>
-                            <h4 className="mb-0 text-white">{formatearMoneda(reporte.totales.gananciaReal)}</h4>
-                            <small className="text-white-50">
-                              Ganancia ({reporte.totales.porcentajeGanancia.toFixed(2)}%)
-                            </small>
-                          </>
-                        )}
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col md={3}>
-                    <Card className="text-center shadow-sm stat-card-info">
-                      <Card.Body className="py-3">
-                        <h4 className="mb-0 text-white">{reporte.contadores.recargas}</h4>
-                        <small className="text-white-50">Recargas</small>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                </Row>
-
-                {/* RESUMEN FINANCIERO */}
-                <Card className="mb-3 shadow-sm">
-                  <Card.Header className="bg-white">
-                    <h6 className="mb-0 fw-bold">📊 Resumen Financiero</h6>
-                  </Card.Header>
-                  <Card.Body>
-                    <Row className="small">
-                      <Col md={6}>
-                        <div className="d-flex justify-content-between py-2 border-bottom">
-                          <span className="text-muted">Periodo:</span>
-                          <span className="fw-bold">
-                            {reporte.periodo.fechaInicio.split(' ')[0]} - {reporte.periodo.fechaFin.split(' ')[0]}
-                          </span>
-                        </div>
-                        <div className="d-flex justify-content-between py-2 border-bottom">
-                          <span className="text-muted">Saldo Inicial:</span>
-                          <span className="fw-bold">{formatearMoneda(reporte.saldos.inicial)}</span>
-                        </div>
-                        <div className="d-flex justify-content-between py-2 border-bottom">
-                          <span className="text-muted">Total Incrementos:</span>
-                          <span className={`fw-bold ${reporte.totales.incrementos > 0 ? 'text-success' : 'text-muted'}`}>
-                            {reporte.totales.incrementos > 0 ? '+' : ''}{formatearMoneda(reporte.totales.incrementos)}
-                          </span>
-                        </div>
-                        <div className="d-flex justify-content-between py-2">
-                          <span className="text-muted">Total Depositado:</span>
-                          <span className="fw-bold">{formatearMoneda(reporte.totales.depositosAsignados)}</span>
+            {/* Resultados del Reporte */}
+            {reporteGanancias && (
+              <Card className="shadow-sm">
+                <Card.Body>
+                  <h5 className="mb-4 text-gradient">
+                    📈 Resultados - {proveedor === 'general' ? 'General' : 'Movistar'}
+                  </h5>
+                  
+                  {/* Resumen Financiero */}
+                  <div className="resumen-financiero mb-4">
+                    <Row className="text-center">
+                      <Col md={2}>
+                        <div className="resumen-item">
+                          <div className="resumen-label">Saldo Inicial</div>
+                          <div className="resumen-valor">${reporteGanancias.saldoInicial}</div>
                         </div>
                       </Col>
-                      <Col md={6}>
-                        <div className="d-flex justify-content-between py-2 border-bottom">
-                          <span className="text-muted">Total Recargado:</span>
-                          <span className="fw-bold text-danger">
-                            -{formatearMoneda(reporte.totales.recargas)}
-                          </span>
+                      <Col md={2}>
+                        <div className="resumen-item">
+                          <div className="resumen-label">Depositado</div>
+                          <div className="resumen-valor">${reporteGanancias.totalDepositado}</div>
                         </div>
-                        {proveedor === 'movistar' && (
-                          <div className="d-flex justify-content-between py-2 border-bottom">
-                            <span className="text-muted">Comisiones:</span>
-                            <span className="fw-bold text-success">
-                              +{formatearMoneda(reporte.totales.comisiones)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="d-flex justify-content-between py-2 border-bottom">
-                          <span className="text-muted">Saldo Final:</span>
-                          <span className="fw-bold">{formatearMoneda(reporte.saldos.finalReal)}</span>
+                      </Col>
+                      <Col md={2}>
+                        <div className="resumen-item">
+                          <div className="resumen-label">Recargado</div>
+                          <div className="resumen-valor">${reporteGanancias.totalRecargado}</div>
                         </div>
-                        <div className={`d-flex justify-content-between py-2 px-2 rounded ${
-                          reporte.totales.incrementos === 0 ? 'bg-light' : 
-                          reporte.totales.gananciaReal >= 0 ? 'bg-success bg-opacity-10' : 'bg-warning bg-opacity-10'
-                        }`}>
-                          <span className="text-muted fw-bold">Ganancia Real:</span>
-                          {reporte.totales.incrementos === 0 ? (
-                            <span className="fw-bold text-muted">
-                              Sin datos
-                            </span>
-                          ) : (
-                            <span className={`fw-bold fs-5 ${
-                              reporte.totales.gananciaReal >= 0 ? 'text-success' : 'text-danger'
-                            }`}>
-                              {formatearMoneda(reporte.totales.gananciaReal)}
-                            </span>
-                          )}
+                      </Col>
+                      <Col md={2}>
+                        <div className="resumen-item">
+                          <div className="resumen-label">Saldo Actual</div>
+                          <div className="resumen-valor">${reporteGanancias.saldoActual}</div>
                         </div>
-                        {reporte.totales.incrementos === 0 && (
-                          <Alert variant="info" className="mt-3 mb-0 py-2">
-                            <small>
-                              ℹ️ No hay incrementos detectados en este periodo. 
-                              La ganancia solo se calcula cuando hay incrementos de saldo.
+                      </Col>
+                      <Col md={2}>
+                        <div className="resumen-item">
+                          <div className="resumen-label">Comisiones</div>
+                          <div className="resumen-valor">${reporteGanancias.totalComisiones}</div>
+                        </div>
+                      </Col>
+                      <Col md={2}>
+                        <div className="resumen-item resumen-ganancia">
+                          <div className="resumen-label">Ganancia Real</div>
+                          <div className="resumen-valor">
+                            ${reporteGanancias.gananciaReal}
+                            <small className="d-block" style={{ fontSize: '0.7rem' }}>
+                              {reporteGanancias.porcentajeGanancia}
                             </small>
-                          </Alert>
-                        )}
+                          </div>
+                        </div>
                       </Col>
                     </Row>
-                  </Card.Body>
-                </Card>
+                  </div>
 
-                {/* DETALLES EXPANDIBLES */}
-                <Accordion>
-                  {/* INCREMENTOS */}
-                  <Accordion.Item eventKey="0">
-                    <Accordion.Header>
-                      <strong>📈 Incrementos</strong>
-                      <Badge bg="primary" className="ms-2">{reporte.detalles.incrementos.length}</Badge>
-                    </Accordion.Header>
-                    <Accordion.Body className="p-0">
-                      {reporte.detalles.incrementos.length === 0 ? (
-                        <div className="text-center py-3 text-muted">
-                          No hay incrementos en este periodo
-                        </div>
-                      ) : (
-                        <div className="table-responsive">
-                          <Table size="sm" hover className="mb-0">
-                            <thead className="table-light">
-                              <tr>
-                                <th className="small">Fecha</th>
-                                <th className="small">Tipo</th>
-                                <th className="small text-end">Incremento</th>
-                                <th className="small text-end">Depósito</th>
-                                <th className="small text-end">Ganancia</th>
-                                <th className="small text-end">%</th>
-                                <th className="small">Estado</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {reporte.detalles.incrementos.map(inc => (
-                                <tr key={inc.id}>
-                                  <td className="small">{inc.fecha}</td>
-                                  <td className="small">
-                                    <Badge bg="secondary" className="badge-incremento">
-                                      {inc.tipo.replace('_', ' ')}
-                                    </Badge>
-                                  </td>
-                                  <td className="small text-end text-success fw-bold">
-                                    {formatearMoneda(inc.incremento)}
-                                  </td>
-                                  <td className="small text-end">
-                                    {formatearMoneda(inc.depositosAsociados)}
-                                  </td>
-                                  <td className="small text-end text-success fw-bold">
-                                    {formatearMoneda(inc.ganancia)}
-                                  </td>
-                                  <td className="small text-end">{inc.porcentaje.toFixed(1)}%</td>
-                                  <td className="small">
-                                    <Badge bg={inc.estado === 'asignado' ? 'success' : 'warning'}>
-                                      {inc.estado}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      )}
-                    </Accordion.Body>
-                  </Accordion.Item>
-
-                  {/* DEPÓSITOS */}
-                  <Accordion.Item eventKey="1">
-                    <Accordion.Header>
-                      <strong>💰 Depósitos</strong>
-                      <Badge bg="success" className="ms-2">{reporte.detalles.depositos.length}</Badge>
-                    </Accordion.Header>
-                    <Accordion.Body className="p-0">
-                      {reporte.detalles.depositos.length === 0 ? (
-                        <div className="text-center py-3 text-muted">
-                          No hay depósitos en este periodo
-                        </div>
-                      ) : (
-                        <div className="table-responsive">
-                          <Table size="sm" hover className="mb-0">
-                            <thead className="table-light">
-                              <tr>
-                                <th className="small">Fecha</th>
-                                <th className="small text-end">Monto</th>
-                                <th className="small">Método</th>
-                                <th className="small">Usuario</th>
-                                <th className="small">Asignado</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {reporte.detalles.depositos.map(dep => (
-                                <tr key={dep.id}>
-                                  <td className="small">{dep.fecha}</td>
-                                  <td className="small text-end fw-bold">
-                                    {formatearMoneda(dep.monto)}
-                                  </td>
-                                  <td className="small">{dep.metodoPago || '-'}</td>
-                                  <td className="small">{dep.usuario || '-'}</td>
-                                  <td className="small">
-                                    <Badge bg={dep.asignado ? 'success' : 'warning'}>
-                                      {dep.asignado ? 'Sí' : 'No'}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      )}
-                    </Accordion.Body>
-                  </Accordion.Item>
-
-                  {/* RECARGAS */}
-                  <Accordion.Item eventKey="2">
-                    <Accordion.Header>
-                      <strong>🔄 Recargas</strong>
-                      <Badge bg="info" className="ms-2">{reporte.detalles.recargas.length}</Badge>
-                    </Accordion.Header>
-                    <Accordion.Body className="p-0">
-                      {reporte.detalles.recargas.length === 0 ? (
-                        <div className="text-center py-3 text-muted">
-                          No hay recargas en este periodo
-                        </div>
-                      ) : (
-                        <div className="table-responsive" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                          <Table size="sm" hover className="mb-0">
-                            <thead className="table-light sticky-top">
-                              <tr>
-                                <th className="small">Fecha</th>
-                                <th className="small">Número</th>
-                                <th className="small text-end">Valor</th>
-                                <th className="small text-end">Comisión</th>
-                                <th className="small text-end">Saldo</th>
-                                <th className="small">Estado</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {reporte.detalles.recargas.map((rec, idx) => (
-                                <tr key={idx}>
-                                  <td className="small">{rec.fecha}</td>
-                                  <td className="small">{rec.numeroRecarga || '-'}</td>
-                                  <td className="small text-end text-danger">
-                                    -{formatearMoneda(rec.valor)}
-                                  </td>
-                                  <td className="small text-end text-success">
-                                    +{formatearMoneda(rec.comision)}
-                                  </td>
-                                  <td className="small text-end">
-                                    {rec.saldoNuevo ? formatearMoneda(rec.saldoNuevo) : '-'}
-                                  </td>
-                                  <td className="small">
-                                    <Badge bg={rec.exitoso ? 'success' : 'danger'}>
-                                      {rec.exitoso ? '✓' : '✗'}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      )}
-                    </Accordion.Body>
-                  </Accordion.Item>
-                </Accordion>
-
-                {/* FOOTER INFO */}
-                <div className="mt-3 text-center">
-                  <small className="text-muted">
-                    Generado: {reporte.metadata.generadoEn} | Zona: {reporte.periodo.timezone}
-                  </small>
-                </div>
-              </>
+                  {/* Fórmula */}
+                  <Alert variant="info">
+                    <strong>📐 Fórmula aplicada:</strong> {reporteGanancias.formula}
+                  </Alert>
+                </Card.Body>
+              </Card>
             )}
-
           </Tab>
+
+          {/* ============= TAB: AJUSTES (NUEVO) ============= 
+          <Tab eventKey="ajustes" title="🔧 Ajustes">
+            <Card className="shadow-sm mb-3">
+              <Card.Body>
+                <h5 className="mb-3">Crear Ajuste Manual de Saldo</h5>
+                <Form onSubmit={handleCrearAjuste}>
+                  <Row>
+                    <Col md={4}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Tipo de Ajuste *</Form.Label>
+                        <Form.Select
+                          value={nuevoAjuste.tipoAjuste}
+                          onChange={(e) => setNuevoAjuste({ ...nuevoAjuste, tipoAjuste: e.target.value })}
+                          required
+                        >
+                          <option value="correccion_saldo">Corrección de Saldo</option>
+                          <option value="conciliacion">Conciliación</option>
+                          <option value="ajuste_deposito">Ajuste de Depósito</option>
+                          <option value="ajuste_comision">Ajuste de Comisión</option>
+                          <option value="otro">Otro</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col md={4}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Saldo Nuevo *</Form.Label>
+                        <Form.Control
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={nuevoAjuste.saldoNuevo}
+                          onChange={(e) => setNuevoAjuste({ ...nuevoAjuste, saldoNuevo: e.target.value })}
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={4}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Proveedor</Form.Label>
+                        <Form.Control 
+                          type="text" 
+                          value={proveedor === 'general' ? 'General (2611)' : 'Movistar (2612)'} 
+                          disabled 
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Motivo *</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={2}
+                      value={nuevoAjuste.motivo}
+                      onChange={(e) => setNuevoAjuste({ ...nuevoAjuste, motivo: e.target.value })}
+                      placeholder="Explica el motivo del ajuste..."
+                      required
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Detalles adicionales</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={2}
+                      value={nuevoAjuste.detalles}
+                      onChange={(e) => setNuevoAjuste({ ...nuevoAjuste, detalles: e.target.value })}
+                      placeholder="Información adicional..."
+                    />
+                  </Form.Group>
+                  <Button type="submit" variant="warning" disabled={loading} className="btn-incrementos">
+                    {loading ? <Spinner size="sm" /> : '🔧 Crear Ajuste'}
+                  </Button>
+                </Form>
+              </Card.Body>
+            </Card>
+
+            {/* Lista de Ajustes 
+            <Card className="shadow-sm">
+              <Card.Body>
+                <h5 className="mb-3">
+                  Historial de Ajustes{' '}
+                  <Badge bg="secondary">{ajustes.length}</Badge>
+                </h5>
+                {ajustes.length === 0 ? (
+                  <Alert variant="info">No hay ajustes registrados</Alert>
+                ) : (
+                  <Table striped bordered hover responsive className="reporte-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Tipo</th>
+                        <th>Saldo Anterior</th>
+                        <th>Saldo Nuevo</th>
+                        <th>Diferencia</th>
+                        <th>Motivo</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ajustes.map(ajuste => (
+                        <tr key={ajuste.id}>
+                          <td>{ajuste.id}</td>
+                          <td><Badge bg="info">{ajuste.tipoAjuste}</Badge></td>
+                          <td>${parseFloat(ajuste.saldoAnterior).toFixed(2)}</td>
+                          <td>${parseFloat(ajuste.saldoNuevo).toFixed(2)}</td>
+                          <td>
+                            <strong className={parseFloat(ajuste.diferencia) >= 0 ? 'text-success' : 'text-danger'}>
+                              {parseFloat(ajuste.diferencia) >= 0 ? '+' : ''}${parseFloat(ajuste.diferencia).toFixed(2)}
+                            </strong>
+                          </td>
+                          <td>{ajuste.motivo}</td>
+                          <td>
+                            <Badge bg={
+                              ajuste.estado === 'aprobado' ? 'success' : 
+                              ajuste.estado === 'rechazado' ? 'danger' : 'warning'
+                            }>
+                              {ajuste.estado}
+                            </Badge>
+                          </td>
+                          <td>{new Date(ajuste.fecha).toLocaleDateString()}</td>
+                          <td>
+                            {ajuste.estado === 'pendiente' && (
+                              <Button 
+                                variant="success" 
+                                size="sm"
+                                onClick={() => handleAprobarAjuste(ajuste.id)}
+                                disabled={loading}
+                              >
+                                ✓ Aprobar
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+*/}
+          {/* ============= TAB: VERIFICACIÓN (NUEVO) ============= */}
+          <Tab eventKey="verificacion" title="✓ Verificación">
+            {/* Verificación de Consistencia */}
+            <Card className="shadow-sm mb-3">
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0">Verificación de Consistencia de Saldos</h5>
+                  <Button 
+                    variant="primary" 
+                    onClick={handleVerificarSaldo}
+                    disabled={loading}
+                    className="btn-incrementos btn-primary-gradient"
+                  >
+                    {loading ? <Spinner size="sm" /> : '🔄 Verificar Ahora'}
+                  </Button>
+                </div>
+
+                {verificacionConsistencia && (
+                  <div>
+                    <Alert variant={verificacionConsistencia.consistente ? 'success' : 'danger'}>
+                      <Row className="align-items-center">
+                        <Col md={2}>
+                          <div className="text-center">
+                            <div style={{ fontSize: '3rem' }}>
+                              {verificacionConsistencia.consistente ? '✅' : '⚠️'}
+                            </div>
+                          </div>
+                        </Col>
+                        <Col md={10}>
+                          <h5>
+                            {verificacionConsistencia.consistente 
+                              ? '✓ Saldos Consistentes' 
+                              : '⚠ Inconsistencia Detectada'}
+                          </h5>
+                          <Row className="mt-3">
+                            <Col md={4}>
+                              <small className="text-muted">Saldo Registrado</small>
+                              <h4>${verificacionConsistencia.saldoRegistrado}</h4>
+                            </Col>
+                            <Col md={4}>
+                              <small className="text-muted">Saldo Esperado</small>
+                              <h4>${verificacionConsistencia.saldoEsperado}</h4>
+                            </Col>
+                            <Col md={4}>
+                              <small className="text-muted">Diferencia</small>
+                              <h4 className={parseFloat(verificacionConsistencia.diferencia) >= 0 ? 'text-success' : 'text-danger'}>
+                                {parseFloat(verificacionConsistencia.diferencia) >= 0 ? '+' : ''}${verificacionConsistencia.diferencia}
+                              </h4>
+                            </Col>
+                          </Row>
+                        </Col>
+                      </Row>
+                    </Alert>
+
+                    {verificacionConsistencia.detalles && (
+                      <Card className="bg-light">
+                        <Card.Body>
+                          <h6>Detalles del Cálculo</h6>
+                          <Row>
+                            <Col md={4}>
+                              <p className="mb-1"><strong>Saldo Inicial:</strong> ${verificacionConsistencia.detalles.saldoInicial}</p>
+                            </Col>
+                            <Col md={4}>
+                              <p className="mb-1"><strong>Total Depositado:</strong> ${verificacionConsistencia.detalles.depositosTotales}</p>
+                            </Col>
+                            <Col md={4}>
+                              <p className="mb-1"><strong>Total Recargado:</strong> ${verificacionConsistencia.detalles.recargasTotales}</p>
+                            </Col>
+                          </Row>
+                        </Card.Body>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+
+            {/* Historial de Eventos */}
+            <Card className="shadow-sm">
+              <Card.Body>
+                <h5 className="mb-3">
+                  📜 Historial de Eventos de Saldo{' '}
+                  <Badge bg="secondary">{historialEventos.length}</Badge>
+                </h5>
+                {historialEventos.length === 0 ? (
+                  <Alert variant="info">No hay eventos registrados</Alert>
+                ) : (
+                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    {historialEventos.map((evento, idx) => (
+                      <Card key={idx} className="mb-2 shadow-sm">
+                        <Card.Body className="py-2">
+                          <Row className="align-items-center">
+                            <Col md={2}>
+                              <Badge bg={
+                                evento.tipoEvento === 'recarga' ? 'primary' :
+                                evento.tipoEvento === 'deposito_detectado' ? 'success' :
+                                evento.tipoEvento === 'comision_acumulada' ? 'info' :
+                                'secondary'
+                              }>
+                                {evento.tipoEvento}
+                              </Badge>
+                            </Col>
+                            <Col md={6}>
+                              <small className="text-muted">
+                                {new Date(evento.fecha).toLocaleString()}
+                              </small>
+                              {evento.detalles && (
+                                <div className="mt-1">
+                                  <small>
+                                    {evento.detalles.valor && `Valor: $${evento.detalles.valor}`}
+                                    {evento.detalles.comision && ` | Comisión: $${evento.detalles.comision}`}
+                                  </small>
+                                </div>
+                              )}
+                            </Col>
+                            <Col md={2} className="text-end">
+                              {evento.saldoAnterior && (
+                                <small className="text-muted">
+                                  ${parseFloat(evento.saldoAnterior).toFixed(2)}
+                                </small>
+                              )}
+                            </Col>
+                            <Col md={2} className="text-end">
+                              <strong>${parseFloat(evento.saldo).toFixed(2)}</strong>
+                            </Col>
+                          </Row>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+
+          {/* ============= TAB: CONFIGURACIÓN (EXISTENTE) ============= 
+          <Tab eventKey="configuracion" title="⚙️ Configuración">
+            <Card className="shadow-sm">
+              <Card.Body>
+                <h5 className="mb-3">Configuración del Sistema</h5>
+                <Alert variant="info">
+                  La configuración aplica para <strong>ambos proveedores</strong> (General y Movistar).
+                </Alert>
+                <Form>
+                  <Form.Check
+                    type="switch"
+                    id="deteccion-switch"
+                    label={
+                      <span>
+                        Detección automática de incrementos{' '}
+                        <Badge bg={deteccionHabilitada ? 'success' : 'secondary'}>
+                          {deteccionHabilitada ? 'Activada' : 'Desactivada'}
+                        </Badge>
+                      </span>
+                    }
+                    checked={deteccionHabilitada}
+                    onChange={handleToggleDeteccion}
+                    disabled={loading}
+                  />
+                </Form>
+                <Alert variant="info" className="mt-3">
+                  <strong>💡 ¿Cómo funciona?</strong>
+                  <ul className="mb-0 mt-2">
+                    <li>Cada recarga compara saldo anterior vs saldo nuevo</li>
+                    <li><strong>General:</strong> Detecta depósitos instantáneos (ganancia 2%)</li>
+                    <li><strong>Movistar:</strong> Detecta comisiones acumuladas por recargas</li>
+                    <li>Crea notificaciones automáticas clasificadas por tipo</li>
+                    <li>Las alertas aparecen en el navbar con badges</li>
+                    <li>Sistema de prioridades (alta/media/baja) según tiempo transcurrido</li>
+                  </ul>
+                </Alert>
+              </Card.Body>
+            </Card>
+          </Tab>*/}
 
         </Tabs>
       </Modal.Body>

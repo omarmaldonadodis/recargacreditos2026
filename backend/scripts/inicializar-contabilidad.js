@@ -1,13 +1,31 @@
-// backend/scripts/registrar-saldo-inicial.js
+// backend/scripts/inicializar-contabilidad-v2.js
 const sequelize = require('../config/database');
-const IncrementoSaldo = require('../models/IncrementoSaldo');
+const SaldoProveedor = require('../models/SaldoProveedor');
 const ConfiguracionSistema = require('../models/ConfiguracionSistema');
+const IncrementoSaldo = require('../models/IncrementoSaldo');
 
 async function iniciarContabilidad() {
   const transaction = await sequelize.transaction();
   
   try {
-    console.log('🚀 Registrando saldo inicial para contabilidad...\n');
+    console.log('🧹 PASO 1: Limpiando registros anteriores...\n');
+    
+
+    // Eliminar configuraciones previas
+    await ConfiguracionSistema.destroy({
+      where: {
+        clave: [
+          'fecha_inicio_contabilidad',
+          'saldo_inicial_general',
+          'saldo_inicial_movistar'
+        ]
+      },
+      transaction
+    });
+    
+    console.log('✅ Registros anteriores eliminados\n');
+    
+    console.log('🚀 PASO 2: Registrando punto de partida...\n');
     
     const fechaInicio = new Date();
     
@@ -16,138 +34,107 @@ async function iniciarContabilidad() {
     // ============================================
     console.log('💰 GENERAL (2611)...');
     
-    const saldoInicialGeneral = 46373.50; // ⬅️ TU SALDO ACTUAL
+    const saldoInicialGeneral = 46153.50; // ⬅️ TU SALDO ACTUAL
     
-    const incrementoGeneral = await IncrementoSaldo.create({
-      saldoAnterior: 0, // ⬅️ Empezamos desde 0
-      saldoNuevo: saldoInicialGeneral, // ⬅️ El saldo que tienes ahora
-      diferencia: saldoInicialGeneral, // ⬅️ Todo es incremento inicial
-      tipoIncremento: 'deposito_inicial',
+    // Registrar snapshot inicial (NO como incremento, solo como evento)
+    await SaldoProveedor.create({
       proveedor: 'general',
-      operadora: 'Sistema',
+      saldoAnterior: null,
+      saldo: saldoInicialGeneral,
+      diferencia: 0,
+      tipoEvento: 'snapshot_inicial',
+      detalles: {
+        nota: 'Punto de partida del sistema de contabilidad',
+        fecha: fechaInicio.toISOString()
+      },
       fecha: fechaInicio,
-      estado: 'pendiente', // ⬅️ PENDIENTE para asignación manual
-      RecargaId: null, // No vinculado a ninguna recarga
-      notas: `💰 SALDO INICIAL DEL SISTEMA
-Saldo actual: $${saldoInicialGeneral.toFixed(2)}
-Este es el punto de partida de la contabilidad.
-Pendiente de asignar depósitos manualmente desde la interfaz.`
+      verificado: true
     }, { transaction });
     
-    console.log(`   ✅ Incremento inicial creado (ID: ${incrementoGeneral.id})`);
-    console.log(`   📊 Saldo inicial: $${saldoInicialGeneral.toFixed(2)}`);
-    console.log(`   ⏳ Estado: PENDIENTE (requiere asignación manual)\n`);
+    console.log(`   ✅ Snapshot inicial registrado: $${saldoInicialGeneral.toFixed(2)}`);
     
     // ============================================
     // MOVISTAR (2612)
     // ============================================
-    console.log('💰 MOVISTAR (2612)...');
+    console.log('\n💰 MOVISTAR (2612)...');
     
     const saldoInicialMovistar = 21254.83; // ⬅️ TU SALDO ACTUAL
     
-    const incrementoMovistar = await IncrementoSaldo.create({
-      saldoAnterior: 0, // ⬅️ Empezamos desde 0
-      saldoNuevo: saldoInicialMovistar, // ⬅️ El saldo que tienes ahora
-      diferencia: saldoInicialMovistar, // ⬅️ Todo es incremento inicial
-      tipoIncremento: 'deposito_inicial',
+    await SaldoProveedor.create({
       proveedor: 'movistar',
-      operadora: 'Sistema',
+      saldoAnterior: null,
+      saldo: saldoInicialMovistar,
+      diferencia: 0,
+      tipoEvento: 'snapshot_inicial',
+      detalles: {
+        nota: 'Punto de partida del sistema de contabilidad',
+        fecha: fechaInicio.toISOString()
+      },
       fecha: fechaInicio,
-      estado: 'pendiente', // ⬅️ PENDIENTE para asignación manual
-      RecargaId: null,
-      comisionAcumulada: 0,
-      cantidadRecargasComision: 0,
-      notas: `💰 SALDO INICIAL DEL SISTEMA
-Saldo actual: $${saldoInicialMovistar.toFixed(2)}
-Este es el punto de partida de la contabilidad.
-Pendiente de asignar depósitos manualmente desde la interfaz.
-La ganancia vendrá de las comisiones futuras.`
+      verificado: true
     }, { transaction });
     
-    console.log(`   ✅ Incremento inicial creado (ID: ${incrementoMovistar.id})`);
-    console.log(`   📊 Saldo inicial: $${saldoInicialMovistar.toFixed(2)}`);
-    console.log(`   ⏳ Estado: PENDIENTE (requiere asignación manual)\n`);
+    console.log(`   ✅ Snapshot inicial registrado: $${saldoInicialMovistar.toFixed(2)}\n`);
     
     // ============================================
-    // GUARDAR FECHA DE INICIO
+    // GUARDAR CONFIGURACIÓN
     // ============================================
-    await ConfiguracionSistema.findOrCreate({
-      where: { clave: 'fecha_inicio_contabilidad' },
+    await ConfiguracionSistema.create({
+      clave: 'fecha_inicio_contabilidad',
+      valor: fechaInicio.toISOString(),
+      descripcion: 'Fecha desde la cual se inicia el sistema de contabilidad'
+    }, { transaction });
+    
+    await ConfiguracionSistema.create({
+      clave: 'saldo_inicial_general',
+      valor: saldoInicialGeneral.toString(),
+      descripcion: 'Saldo inicial de General registrado en el sistema'
+    }, { transaction });
+    
+    await ConfiguracionSistema.create({
+      clave: 'saldo_inicial_movistar',
+      valor: saldoInicialMovistar.toString(),
+      descripcion: 'Saldo inicial de Movistar registrado en el sistema'
+    }, { transaction });
+    
+    // Habilitar detección automática
+    const [configDeteccion] = await ConfiguracionSistema.findOrCreate({
+      where: { clave: 'deteccion_incrementos_habilitada' },
       defaults: {
-        valor: fechaInicio.toISOString(),
-        descripcion: 'Fecha desde la cual se inicia el sistema de contabilidad'
+        valor: 'true',
+        descripcion: 'Detección automática de incrementos de saldo'
       },
       transaction
     });
     
-    await ConfiguracionSistema.findOrCreate({
-      where: { clave: 'saldo_inicial_general' },
-      defaults: {
-        valor: saldoInicialGeneral.toString(),
-        descripcion: 'Saldo inicial de General registrado en el sistema'
-      },
-      transaction
-    });
-    
-    await ConfiguracionSistema.findOrCreate({
-      where: { clave: 'saldo_inicial_movistar' },
-      defaults: {
-        valor: saldoInicialMovistar.toString(),
-        descripcion: 'Saldo inicial de Movistar registrado en el sistema'
-      },
-      transaction
-    });
+    configDeteccion.valor = 'true';
+    await configDeteccion.save({ transaction });
     
     await transaction.commit();
     
     console.log('═══════════════════════════════════════════════════════');
-    console.log('🎉 ¡SALDOS INICIALES REGISTRADOS!');
+    console.log('🎉 ¡SISTEMA DE CONTABILIDAD INICIALIZADO!');
     console.log('═══════════════════════════════════════════════════════\n');
     
-    console.log('📊 RESUMEN:');
+    console.log('📊 PUNTO DE PARTIDA:');
     console.log(`   • General: $${saldoInicialGeneral.toLocaleString()}`);
     console.log(`   • Movistar: $${saldoInicialMovistar.toLocaleString()}`);
     console.log(`   • Fecha: ${fechaInicio.toLocaleString()}\n`);
     
-    console.log('📋 PRÓXIMOS PASOS EN LA INTERFAZ:\n');
+    console.log('✅ SISTEMA CONFIGURADO:\n');
+    console.log('   1. A partir de ahora, cada recarga se rastreará');
+    console.log('   2. GENERAL: Se detectará cuando el saldo suba más de lo esperado');
+    console.log('      Ejemplo: Recarga $10, saldo sube $11 → Detecta $1 de ganancia');
+    console.log('   3. MOVISTAR: Se detectará la acumulación de comisiones');
+    console.log('      Ejemplo: 100 recargas de $10 con comisión $1 c/u → Detecta $100');
+    console.log('   4. Podrás registrar depósitos y asignarlos a incrementos\n');
     
-    console.log('1️⃣  ABRIR MODAL DE CONTABILIDAD');
-    console.log('   • Click en el saldo de General o Movistar en el navbar\n');
-    
-    console.log('2️⃣  VER INCREMENTOS PENDIENTES (Tab "📋 Incrementos")');
-    console.log(`   • General: $${saldoInicialGeneral.toLocaleString()} - PENDIENTE`);
-    console.log(`   • Movistar: $${saldoInicialMovistar.toLocaleString()} - PENDIENTE\n`);
-    
-    console.log('3️⃣  REGISTRAR DEPÓSITOS (Tab "💵 Depósitos")');
-    console.log('   Ejemplo para General:');
-    console.log('   ┌─────────────────────────────────────────┐');
-    console.log('   │ Monto: 45000                            │');
-    console.log('   │ Usuario: Juan Pérez - Vendedor          │');
-    console.log('   │ Tipo: Efectivo                          │');
-    console.log('   │ Referencia: DEP-INIT-001                │');
-    console.log('   │ Notas: Depósito inicial General         │');
-    console.log('   │ [Registrar Depósito]                    │');
-    console.log('   └─────────────────────────────────────────┘\n');
-    
-    console.log('   💡 Puedes registrar varios depósitos de diferentes usuarios');
-    console.log('   💡 La suma de depósitos puede ser menor que el saldo');
-    console.log('   💡 La diferencia será la ganancia del proveedor\n');
-    
-    console.log('4️⃣  ASIGNAR DEPÓSITOS AL INCREMENTO (Tab "🔗 Asignar")');
-    console.log('   • Selecciona el incremento pendiente');
-    console.log('   • Marca los depósitos que quieres asignar');
-    console.log('   • El sistema calculará la ganancia automáticamente');
-    console.log('   • Click en "Confirmar Asignación"\n');
-    
-    console.log('5️⃣  VERIFICAR EN REPORTES (Tab "📊 Reportes")');
-    console.log('   • Verás el saldo inicial');
-    console.log('   • Total depositado por cada usuario');
-    console.log('   • Ganancia calculada\n');
-    
-    console.log('✅ A partir de ahora:');
-    console.log('   • Todas las recargas nuevas se contarán');
-    console.log('   • Los incrementos futuros se detectarán automáticamente');
-    console.log('   • Las comisiones de Movistar se acumularán\n');
+    console.log('🔔 PRÓXIMAS ACCIONES:\n');
+    console.log('   • Realiza recargas normalmente');
+    console.log('   • El sistema detectará automáticamente incrementos');
+    console.log('   • Registra tus depósitos en el modal de contabilidad');
+    console.log('   • Asigna depósitos a los incrementos detectados');
+    console.log('   • Consulta reportes de ganancias reales\n');
     
     console.log('═══════════════════════════════════════════════════════\n');
     
@@ -156,10 +143,6 @@ La ganancia vendrá de las comisiones futuras.`
   } catch (error) {
     await transaction.rollback();
     console.error('❌ Error:', error);
-    console.error('\n💡 Si el error es "Duplicate entry", significa que');
-    console.error('   ya ejecutaste este script antes. Puedes:');
-    console.error('   1. Verificar los incrementos en la interfaz');
-    console.error('   2. O eliminarlos desde MySQL y volver a ejecutar\n');
     process.exit(1);
   }
 }
