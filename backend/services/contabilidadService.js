@@ -50,7 +50,7 @@ class ContabilidadService {
    */
   async detectarIncrementoGeneral({ saldoAnterior, saldoNuevo, valor, comision, RecargaId, operadora }) {
     try {
-      const saldoEsperado = saldoAnterior - valor + comision;
+      const saldoEsperado = saldoAnterior - valor;
       const diferencia = saldoNuevo - saldoEsperado;
       
       console.log(`🔍 [GENERAL] Esperado=$${saldoEsperado.toFixed(2)}, Real=$${saldoNuevo.toFixed(2)}, Diferencia=$${diferencia.toFixed(2)}`);

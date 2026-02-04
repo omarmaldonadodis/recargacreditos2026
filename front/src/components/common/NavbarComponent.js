@@ -437,12 +437,12 @@ const NavbarComponent = () => {
           }
 
           .saldo-label {
-            font-weight: 600;
+            font-weight: 500;
           }
 
           .saldo-amount {
             font-weight: bold;
-            font-size: 1.1em;
+            font-size: 0.9em;
           }
 
           .separator {

@@ -86,6 +86,9 @@ const tiendaRoutes = require('./routes/tiendas');
 const incrementosRoutes = require('./routes/incrementos');
 const contabilidadRoutes = require('./routes/contabilidad');
 
+const whatsappService = require('./services/whatsappService');
+
+
 require('dotenv').config();
 
 const app = express();
@@ -134,12 +137,29 @@ sequelize.sync({ alter: true }).then(async () => {
   
   // Iniciar sistema de alertas
   iniciarSistemaAlertas();
+
+    // ===== INICIALIZAR WHATSAPP =====
+    // ===== INICIALIZAR WHATSAPP (OPCIONAL) =====
+    const whatsappEnabled = process.env.WHATSAPP_ENABLED !== 'false';
+
+    if (whatsappEnabled) {
+      console.log('\n📱 Inicializando servicio de WhatsApp...');
+      whatsappService.getProvider().catch(err => {
+        console.error('⚠️ WhatsApp falló al inicializar:', err.message);
+        console.log('💡 El sistema continuará sin notificaciones de WhatsApp\n');
+      });
+    } else {
+      console.log('\n📱 WhatsApp DESACTIVADO (configuración)\n');
+    }
+  
   
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Servidor corriendo en el puerto ${PORT}`);
     console.log(`📊 Sistema de contabilidad ACTIVO`);
     console.log(`🔔 Sistema de alertas ACTIVO`);
   });
+
+
 }).catch(err => {
   console.error('❌ Error al sincronizar la base de datos:', err);
   process.exit(1);
@@ -318,14 +338,18 @@ process.on('uncaughtException', (error) => {
 });
 
 // Graceful shutdown
+
+
 process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM recibido, cerrando servidor...');
+  await whatsappService.cerrar();
   await sequelize.close();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('\n🛑 SIGINT recibido, cerrando servidor...');
+  await whatsappService.cerrar();
   await sequelize.close();
   process.exit(0);
 });

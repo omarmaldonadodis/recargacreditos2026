@@ -1,4 +1,4 @@
-// front/src/components/common/IncrementosModal.js - VERSIÓN COMPLETA UNIFICADA
+// front/src/components/common/IncrementosModal.js - VERSIÓN MEJORADA CON ICONOS Y AUTO-REPORTE
 import React, { useState, useEffect } from 'react';
 import { 
   Modal, Tabs, Tab, Badge, Button, Form, Table, Alert, 
@@ -8,6 +8,14 @@ import * as XLSX from 'xlsx';
 import moment from 'moment-timezone';
 import api from '../../services/axiosConfig';
 import './IncrementosModal.css';
+
+// Iconos de react-icons
+import { 
+  FiBell, FiFileText, FiDollarSign, FiLink, FiBarChart2,
+  FiCheck, FiX, FiAlertTriangle, FiClock, FiTrendingUp,
+  FiDownload, FiSave, FiTrash2, FiCheckCircle,
+  FiCalendar, FiRefreshCw
+} from 'react-icons/fi';
 
 const IncrementosModal = ({ show, handleClose, proveedor }) => {
   const [activeTab, setActiveTab] = useState('alertas');
@@ -50,6 +58,9 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
   useEffect(() => {
     if (show) {
       cargarDatos();
+    } else {
+      // REINICIAR TODOS LOS ESTADOS AL CERRAR EL MODAL
+      resetearEstados();
     }
   }, [show, proveedor, activeTab]);
 
@@ -60,36 +71,83 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     setFechaFin(hoy);
   }, []);
 
-  const cargarDatos = async () => {
-    setLoading(true);
-    try {
-      switch (activeTab) {
-        case 'alertas':
-          await cargarAlertas();
-          await cargarEstadisticasAlertas();
-          break;
-        case 'notificaciones':
-          await cargarIncrementos();
-          break;
-        case 'depositos':
-          await cargarUsuariosValidos();
-          await cargarDepositosDisponibles();
-          await cargarIncrementoMaximo();
-          break;
-        case 'asignar':
-          await cargarIncrementos();
-          await cargarDepositosDisponibles();
-          break;
-        case 'reportes':
-          await cargarReporteCompleto();
-          break;
+  // NUEVO: Auto-generar reporte cuando cambian las fechas
+  useEffect(() => {
+    if (activeTab === 'reportes' && fechaInicio && fechaFin && show) {
+      // Validar que fecha inicio no sea mayor a fecha fin
+      if (new Date(fechaInicio) <= new Date(fechaFin)) {
+        cargarReporteCompleto();
       }
-    } catch (error) {
-      mostrarAlerta('Error al cargar datos', 'danger');
-    } finally {
-      setLoading(false);
     }
+  }, [fechaInicio, fechaFin, activeTab, show]);
+
+  // NUEVO: Efecto para manejar cambios de tab automáticos
+  useEffect(() => {
+    // Si estamos en el tab de incrementos pero ya no hay incrementos, volver a alertas
+    if (activeTab === 'notificaciones' && incrementos.length === 0) {
+      setActiveTab('alertas');
+    }
+    
+    // Si estamos en el tab de asignar pero ya no hay incremento seleccionado, volver a alertas
+    if (activeTab === 'asignar' && !selectedIncremento) {
+      setActiveTab('alertas');
+    }
+  }, [incrementos.length, selectedIncremento, activeTab]);
+
+  // NUEVO: Función para resetear todos los estados
+  const resetearEstados = () => {
+    setActiveTab('alertas');
+    setIncrementos([]);
+    setSelectedIncremento(null);
+    setNuevoDeposito({
+      monto: '',
+      usuarioId: '',
+      tipoDeposito: 'efectivo',
+      referencia: '',
+      notas: ''
+    });
+    setDepositosDisponibles([]);
+    setDepositosSeleccionados([]);
+    setNotasAsignacion('');
+    setIncrementoMaximo(0);
+    setAlertas([]);
+    setEstadisticasAlertas(null);
+    setReporte(null);
+    setReporteError(null);
+    setAlert({ show: false, message: '', variant: '' });
   };
+
+const cargarDatos = async () => {
+  setLoading(true);
+  try {
+    switch (activeTab) {
+      case 'alertas':
+        await cargarAlertas();
+        await cargarEstadisticasAlertas();
+        await cargarIncrementos(); // ⭐ AGREGAR ESTA LÍNEA - Cargar incrementos también en alertas
+        break;
+      case 'notificaciones':
+        await cargarIncrementos();
+        break;
+      case 'depositos':
+        await cargarUsuariosValidos();
+        await cargarDepositosDisponibles();
+        await cargarIncrementoMaximo();
+        break;
+      case 'asignar':
+        await cargarIncrementos();
+        await cargarDepositosDisponibles();
+        break;
+      case 'reportes':
+        // El reporte se cargará automáticamente por el useEffect
+        break;
+    }
+  } catch (error) {
+    mostrarAlerta('Error al cargar datos', 'danger');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ============= FUNCIONES DE CARGA EXISTENTES =============
   
@@ -174,6 +232,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
   
   const cargarReporteCompleto = async () => {
     setReporteError(null);
+    setLoading(true);
     try {
       const params = new URLSearchParams({
         proveedor,
@@ -192,7 +251,35 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     } catch (err) {
       console.error('Error cargando reporte:', err);
       setReporteError(err.response?.data?.error || err.message);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // ============= VALIDACIÓN DE FECHAS =============
+  
+  const handleFechaInicioChange = (e) => {
+    const newFechaInicio = e.target.value;
+    
+    // Validar que fecha inicio no sea mayor a fecha fin
+    if (fechaFin && new Date(newFechaInicio) > new Date(fechaFin)) {
+      mostrarAlerta('La fecha de inicio no puede ser mayor a la fecha de fin', 'warning');
+      return;
+    }
+    
+    setFechaInicio(newFechaInicio);
+  };
+
+  const handleFechaFinChange = (e) => {
+    const newFechaFin = e.target.value;
+    
+    // Validar que fecha fin no sea menor a fecha inicio
+    if (fechaInicio && new Date(newFechaFin) < new Date(fechaInicio)) {
+      mostrarAlerta('La fecha de fin no puede ser menor a la fecha de inicio', 'warning');
+      return;
+    }
+    
+    setFechaFin(newFechaFin);
   };
 
   // ============= FUNCIÓN PARA EXPORTAR EXCEL =============
@@ -235,8 +322,8 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     // Formato de moneda para celdas específicas
     ['B7', 'B8', 'B9', 'B13', 'B14', 'B15', 'B16'].forEach(cell => {
       if (wsResumen[cell]) {
-        wsResumen[cell].t = 'n'; // tipo número
-        wsResumen[cell].z = '"$"#,##0.00'; // formato moneda
+        wsResumen[cell].t = 'n';
+        wsResumen[cell].z = '"$"#,##0.00';
       }
     });
     
@@ -248,7 +335,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     
     XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
 
-    // HOJA 2: INCREMENTOS con formato
+    // HOJA 2: INCREMENTOS
     if (reporte.detalles.incrementos.length > 0) {
       const incrementosHeaders = [
         'ID', 'Fecha', 'Tipo', 'Incremento', 'Depósitos', 'Ganancia', 'Porcentaje', 'Estado'
@@ -261,7 +348,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
         inc.incremento,
         inc.depositosAsociados,
         inc.ganancia,
-        inc.porcentaje / 100, // Convertir a decimal para formato porcentaje
+        inc.porcentaje / 100,
         inc.estado
       ]);
 
@@ -270,19 +357,11 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
         ...incrementosData
       ]);
 
-      // Configurar anchos de columna
       wsIncrementos['!cols'] = [
-        { wch: 5 },  // ID
-        { wch: 18 }, // Fecha
-        { wch: 20 }, // Tipo
-        { wch: 12 }, // Incremento
-        { wch: 12 }, // Depósitos
-        { wch: 12 }, // Ganancia
-        { wch: 12 }, // Porcentaje
-        { wch: 12 }  // Estado
+        { wch: 5 },  { wch: 18 }, { wch: 20 }, { wch: 12 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }
       ];
       
-      // Aplicar formato de moneda a columnas D, E, F (Incremento, Depósitos, Ganancia)
       const filas = incrementosData.length;
       for (let i = 2; i <= filas + 1; i++) {
         ['D', 'E', 'F'].forEach(col => {
@@ -293,7 +372,6 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
           }
         });
         
-        // Formato porcentaje para columna G
         const cellG = `G${i}`;
         if (wsIncrementos[cellG]) {
           wsIncrementos[cellG].t = 'n';
@@ -304,7 +382,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
       XLSX.utils.book_append_sheet(wb, wsIncrementos, 'Incrementos');
     }
 
-    // HOJA 3: DEPÓSITOS con formato
+    // HOJA 3: DEPÓSITOS
     if (reporte.detalles.depositos.length > 0) {
       const depositosHeaders = [
         'ID', 'Fecha', 'Monto', 'Método', 'Usuario', 'Asignado'
@@ -325,15 +403,10 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
       ]);
 
       wsDepositos['!cols'] = [
-        { wch: 5 },  // ID
-        { wch: 18 }, // Fecha
-        { wch: 12 }, // Monto
-        { wch: 15 }, // Método
-        { wch: 20 }, // Usuario
-        { wch: 10 }  // Asignado
+        { wch: 5 }, { wch: 18 }, { wch: 12 },
+        { wch: 15 }, { wch: 20 }, { wch: 10 }
       ];
       
-      // Formato de moneda para columna C (Monto)
       const filasD = depositosData.length;
       for (let i = 2; i <= filasD + 1; i++) {
         const cell = `C${i}`;
@@ -346,7 +419,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
       XLSX.utils.book_append_sheet(wb, wsDepositos, 'Depósitos');
     }
 
-    // HOJA 4: RECARGAS con formato
+    // HOJA 4: RECARGAS
     if (reporte.detalles.recargas.length > 0) {
       const recargasHeaders = [
         'Fecha', 'Número', 'Valor', 'Comisión', 'Saldo Nuevo', 'Exitoso'
@@ -367,15 +440,10 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
       ]);
 
       wsRecargas['!cols'] = [
-        { wch: 18 }, // Fecha
-        { wch: 15 }, // Número
-        { wch: 10 }, // Valor
-        { wch: 10 }, // Comisión
-        { wch: 12 }, // Saldo Nuevo
-        { wch: 10 }  // Exitoso
+        { wch: 18 }, { wch: 15 }, { wch: 10 },
+        { wch: 10 }, { wch: 12 }, { wch: 10 }
       ];
       
-      // Formato de moneda para columnas C, D, E (Valor, Comisión, Saldo)
       const filasR = recargasData.length;
       for (let i = 2; i <= filasR + 1; i++) {
         ['C', 'D', 'E'].forEach(col => {
@@ -581,13 +649,195 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     return labels[tipo] || tipo;
   };
 
+  // ============= COMPONENTE DE TABS PARA DETALLES DEL REPORTE =============
+  
+  const DetallesReporteTabs = ({ reporte, formatearMoneda }) => {
+    const [activeDetailTab, setActiveDetailTab] = useState('incrementos');
+
+    return (
+      <>
+        {/* Tabs Horizontales Estilo Moderno */}
+        <div className="accordion-tabs-style">
+          <button
+            className={`accordion-tab-button ${activeDetailTab === 'incrementos' ? 'active' : ''}`}
+            onClick={() => setActiveDetailTab('incrementos')}
+          >
+            <FiTrendingUp /> Incrementos
+            <Badge bg="primary">{reporte.detalles.incrementos.length}</Badge>
+          </button>
+          <button
+            className={`accordion-tab-button ${activeDetailTab === 'depositos' ? 'active' : ''}`}
+            onClick={() => setActiveDetailTab('depositos')}
+          >
+            <FiDollarSign /> Depósitos
+            <Badge bg="success">{reporte.detalles.depositos.length}</Badge>
+          </button>
+          <button
+            className={`accordion-tab-button ${activeDetailTab === 'recargas' ? 'active' : ''}`}
+            onClick={() => setActiveDetailTab('recargas')}
+          >
+            <FiRefreshCw /> Recargas
+            <Badge bg="info">{reporte.detalles.recargas.length}</Badge>
+          </button>
+        </div>
+
+        {/* Contenido según tab activo */}
+        <Card className="shadow-sm">
+          <Card.Body className="p-0">
+            {activeDetailTab === 'incrementos' && (
+              reporte.detalles.incrementos.length === 0 ? (
+                <div className="text-center py-4 text-muted">
+                  No hay incrementos en este periodo
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <Table size="sm" hover className="mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th className="small">Fecha</th>
+                        <th className="small">Tipo</th>
+                        <th className="small text-end">Incremento</th>
+                        <th className="small text-end">Depósito</th>
+                        <th className="small text-end">Ganancia</th>
+                        <th className="small text-end">%</th>
+                        <th className="small">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reporte.detalles.incrementos.map(inc => (
+                        <tr key={inc.id}>
+                          <td className="small" data-label="Fecha">{inc.fecha}</td>
+                          <td className="small" data-label="Tipo">
+                            <Badge bg="secondary" className="badge-incremento">
+                              {inc.tipo.replace('_', ' ')}
+                            </Badge>
+                          </td>
+                          <td className="small text-end text-success fw-bold" data-label="Incremento">
+                            {formatearMoneda(inc.incremento)}
+                          </td>
+                          <td className="small text-end" data-label="Depósito">
+                            {formatearMoneda(inc.depositosAsociados)}
+                          </td>
+                          <td className="small text-end text-success fw-bold" data-label="Ganancia">
+                            {formatearMoneda(inc.ganancia)}
+                          </td>
+                          <td className="small text-end" data-label="%">{inc.porcentaje.toFixed(1)}%</td>
+                          <td className="small" data-label="Estado">
+                            <Badge bg={inc.estado === 'asignado' ? 'success' : 'warning'}>
+                              {inc.estado}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              )
+            )}
+
+            {activeDetailTab === 'depositos' && (
+              reporte.detalles.depositos.length === 0 ? (
+                <div className="text-center py-4 text-muted">
+                  No hay depósitos en este periodo
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <Table size="sm" hover className="mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th className="small">Fecha</th>
+                        <th className="small text-end">Monto</th>
+                        <th className="small">Método</th>
+                        <th className="small">Usuario</th>
+                        <th className="small">Asignado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reporte.detalles.depositos.map(dep => (
+                        <tr key={dep.id}>
+                          <td className="small" data-label="Fecha">{dep.fecha}</td>
+                          <td className="small text-end fw-bold" data-label="Monto">
+                            {formatearMoneda(dep.monto)}
+                          </td>
+                          <td className="small" data-label="Método">{dep.metodoPago || '-'}</td>
+                          <td className="small" data-label="Usuario">{dep.usuario || '-'}</td>
+                          <td className="small" data-label="Asignado">
+                            <Badge bg={dep.asignado ? 'success' : 'warning'}>
+                              {dep.asignado ? 'Sí' : 'No'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              )
+            )}
+
+            {activeDetailTab === 'recargas' && (
+              reporte.detalles.recargas.length === 0 ? (
+                <div className="text-center py-4 text-muted">
+                  No hay recargas en este periodo
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  <Table size="sm" hover className="mb-0">
+                    <thead className="table-light sticky-top">
+                      <tr>
+                        <th className="small">Fecha</th>
+                        <th className="small">Número</th>
+                        <th className="small text-end">Valor</th>
+                        <th className="small text-end">Comisión</th>
+                        <th className="small text-end">Saldo</th>
+                        <th className="small">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reporte.detalles.recargas.map((rec, idx) => (
+                        <tr key={idx}>
+                          <td className="small" data-label="Fecha">{rec.fecha}</td>
+                          <td className="small" data-label="Número">{rec.numeroRecarga || '-'}</td>
+                          <td className="small text-end text-danger" data-label="Valor">
+                            -{formatearMoneda(rec.valor)}
+                          </td>
+                          <td className="small text-end text-success" data-label="Comisión">
+                            +{formatearMoneda(rec.comision)}
+                          </td>
+                          <td className="small text-end" data-label="Saldo">
+                            {rec.saldoNuevo ? formatearMoneda(rec.saldoNuevo) : '-'}
+                          </td>
+                          <td className="small" data-label="Estado">
+                            <Badge bg={rec.exitoso ? 'success' : 'danger'}>
+                              {rec.exitoso ? <FiCheckCircle /> : <FiX />}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              )
+            )}
+          </Card.Body>
+        </Card>
+      </>
+    );
+  };
+
   // ============= RENDER =============
   
   return (
-    <Modal show={show} onHide={handleClose} size="xl" centered className="incrementos-modal">
+    <Modal 
+      show={show} 
+      onHide={handleClose} 
+      size="xl" 
+      centered 
+      className="incrementos-modal"
+    >
       <Modal.Header closeButton>
         <Modal.Title>
-          📊 Gestión de Contabilidad
+          <FiBarChart2 />
+          Gestión de Contabilidad
           <Badge 
             bg={proveedor === 'general' ? 'primary' : 'success'} 
             className="ms-3"
@@ -611,7 +861,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             eventKey="alertas" 
             title={
               <span>
-                🔔 Alertas {alertas.length > 0 && <Badge bg="danger">{alertas.length}</Badge>}
+                <FiBell /> Alertas {alertas.length > 0 && <Badge bg="danger">{alertas.length}</Badge>}
               </span>
             }
           >
@@ -660,7 +910,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
 
                 {alertas.length === 0 ? (
                   <Alert variant="success">
-                    ✅ No hay alertas pendientes para <strong>{proveedor === 'general' ? 'General' : 'Movistar'}</strong>
+                    <FiCheckCircle /> No hay alertas pendientes para <strong>{proveedor === 'general' ? 'General' : 'Movistar'}</strong>
                   </Alert>
                 ) : (
                   <div>
@@ -670,7 +920,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                           <Row className="align-items-center">
                             <Col md={1}>
                               <Badge bg={getUrgenciaColor(alerta.urgencia)} pill style={{ fontSize: '1.2rem' }}>
-                                {alerta.urgencia === 'alta' ? '🔴' : alerta.urgencia === 'media' ? '🟡' : '🟢'}
+                                <FiAlertTriangle />
                               </Badge>
                             </Col>
                             <Col md={7}>
@@ -682,7 +932,11 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                               </h5>
                               <p className="mb-1">{alerta.mensaje}</p>
                               <small className="text-muted">
-                                {alerta.horasTranscurridas > 0 && `Hace ${alerta.horasTranscurridas}h`}
+                                {alerta.horasTranscurridas > 0 && (
+                                  <>
+                                    <FiClock /> {alerta.horasTranscurridas}h
+                                  </>
+                                )}
                                 {alerta.tipoIncremento && ` | ${getTipoIncrementoLabel(alerta.tipoIncremento)}`}
                               </small>
                             </Col>
@@ -691,19 +945,62 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                             </Col>
                             <Col md={2} className="text-end">
                               {alerta.tipo === 'incremento_pendiente' && (
-                                <Button 
-                                  variant="primary" 
-                                  size="sm"
-                                  onClick={() => {
-                                    const inc = incrementos.find(i => i.id === alerta.id);
-                                    if (inc) {
-                                      setSelectedIncremento(inc);
-                                      setActiveTab('asignar');
-                                    }
-                                  }}
-                                >
-                                  Asignar
-                                </Button>
+<Button 
+  variant="primary" 
+  size="sm"
+  className="btn-incrementos"
+  onClick={async () => {
+    // ⭐ NUEVA LÓGICA
+    // Si no tenemos incrementos cargados, cargarlos primero
+    if (incrementos.length === 0) {
+      setLoading(true);
+      try {
+        await cargarIncrementos();
+        // Esperar un momento para que el estado se actualice
+        setTimeout(() => {
+          const inc = incrementos.find(i => i.id === alerta.id);
+          if (inc) {
+            setSelectedIncremento(inc);
+            setActiveTab('asignar');
+          }
+        }, 100);
+      } catch (error) {
+        mostrarAlerta('Error al cargar incremento', 'danger');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Si ya tenemos incrementos cargados, proceder normal
+      const inc = incrementos.find(i => i.id === alerta.id);
+      if (inc) {
+        setSelectedIncremento(inc);
+        setActiveTab('asignar');
+      } else {
+        // Si no encontramos el incremento, recargar
+        setLoading(true);
+        try {
+          await cargarIncrementos();
+          setTimeout(() => {
+            const inc = incrementos.find(i => i.id === alerta.id);
+            if (inc) {
+              setSelectedIncremento(inc);
+              setActiveTab('asignar');
+            } else {
+              mostrarAlerta('No se encontró el incremento', 'warning');
+            }
+          }, 100);
+        } catch (error) {
+          mostrarAlerta('Error al cargar incremento', 'danger');
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+  }}
+>
+  <FiLink /> Asignar
+</Button>
+
                               )}
                             </Col>
                           </Row>
@@ -716,100 +1013,94 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             )}
           </Tab>
 
-          {/* ============= TAB: INCREMENTOS ============= */}
-          <Tab 
-            eventKey="notificaciones" 
-            title={
-              <span>
-                📋 Incrementos {incrementos.length > 0 && <Badge bg="danger">{incrementos.length}</Badge>}
-              </span>
-            }
-          >
-            {loading ? (
-              <div className="text-center p-5">
-                <Spinner animation="border" />
-              </div>
-            ) : incrementos.length === 0 ? (
-              <Alert variant="info">
-                No hay incrementos pendientes para <strong>{proveedor === 'general' ? 'General' : 'Movistar'}</strong>
-              </Alert>
-            ) : (
-              <div>
-                {incrementos.map(inc => {
-                  const saldoAnterior = parseFloat(inc.saldoAnterior);
-                  const saldoNuevo = parseFloat(inc.saldoNuevo);
-                  const diferencia = parseFloat(inc.diferencia);
-                  
-                  return (
-                    <Card key={inc.id} className="mb-3 shadow-sm incremento-card">
-                      <Card.Body>
-                        <Row>
-                          <Col md={8}>
-                            <h5>
-                              <Badge bg="warning" text="dark">#{inc.id}</Badge>
-                              <Badge bg={proveedor === 'general' ? 'primary' : 'success'} className="ms-2">
-                                {getTipoIncrementoLabel(inc.tipoIncremento)}
-                              </Badge>
-                              <small className="text-muted ms-2">{new Date(inc.fecha).toLocaleString()}</small>
-                            </h5>
-                            <p className="mb-1">
-                              <strong>Operadora:</strong> {inc.operadora}
-                            </p>
-                            
-                            {inc.comisionAcumulada && (
-                              <Alert variant="info" className="mt-2 mb-2 py-2">
-                                💰 Comisiones acumuladas: <strong>${parseFloat(inc.comisionAcumulada).toFixed(2)}</strong>
-                                {' '}({inc.cantidadRecargasComision} recargas)
-                              </Alert>
-                            )}
-                            
-                            <div className="mt-2 p-2 bg-light rounded">
-                              <Row>
-                                <Col md={4}>
-                                  <small className="text-muted">Saldo anterior</small>
-                                  <p className="mb-0"><strong>${saldoAnterior.toFixed(2)}</strong></p>
-                                </Col>
-                                <Col md={4}>
-                                  <small className="text-muted">Saldo nuevo</small>
-                                  <p className="mb-0"><strong>${saldoNuevo.toFixed(2)}</strong></p>
-                                </Col>
-                                <Col md={4}>
-                                  <small className="text-muted">Diferencia</small>
-                                  <h4 className="mb-0 text-success">${diferencia.toFixed(2)}</h4>
-                                </Col>
-                              </Row>
-                            </div>
-                          </Col>
-                          <Col md={4} className="d-flex flex-column justify-content-center gap-2">
-                            <Button 
-                              variant="success" 
-                              size="sm"
-                              onClick={() => {
-                                setSelectedIncremento(inc);
-                                setActiveTab('asignar');
-                              }}
-                            >
-                              ✅ Asignar Depósitos
-                            </Button>
-                            <Button 
-                              variant="outline-secondary"
-                              size="sm"
-                              onClick={() => handleIgnorarIncremento(inc.id)}
-                            >
-                              ✕ Ignorar
-                            </Button>
-                          </Col>
-                        </Row>
-                      </Card.Body>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </Tab>
+          {/* ============= TAB: INCREMENTOS - SOLO SI HAY INCREMENTOS ============= */}
+          {incrementos.length > 0 && (
+            <Tab 
+              eventKey="notificaciones" 
+              title={
+                <span>
+                  <FiFileText /> Incrementos <Badge bg="danger">{incrementos.length}</Badge>
+                </span>
+              }
+            >
+              {loading ? (
+                <div className="text-center p-5">
+                  <Spinner animation="border" />
+                </div>
+              ) : (
+                <div>
+                  {incrementos.map(inc => {
+                    const saldoAnterior = parseFloat(inc.saldoAnterior);
+                    const saldoNuevo = parseFloat(inc.saldoNuevo);
+                    const diferencia = parseFloat(inc.diferencia);
+                    
+                    return (
+                      <Card key={inc.id} className="mb-3 shadow-sm incremento-card">
+                        <Card.Body>
+                          <Row>
+                            <Col lg={12} md={12}>
+                              <h5>
+                                <Badge bg="warning" text="dark">#{inc.id}</Badge>
+                                <Badge bg={proveedor === 'general' ? 'primary' : 'success'} className="ms-2">
+                                  {getTipoIncrementoLabel(inc.tipoIncremento)}
+                                </Badge>
+                                <small className="text-muted ms-2">
+                                  <FiClock /> {new Date(inc.fecha).toLocaleString()}
+                                </small>
+                              </h5>
+                              <p className="mb-1">
+                                <strong>Operadora:</strong> {inc.operadora}
+                              </p>
+                              
+                              {inc.comisionAcumulada && (
+                                <Alert variant="info" className="mt-2 mb-2 py-2">
+                                  <FiTrendingUp /> Comisiones acumuladas: <strong>${parseFloat(inc.comisionAcumulada).toFixed(2)}</strong>
+                                  {' '}({inc.cantidadRecargasComision} recargas)
+                                </Alert>
+                              )}
+                              
+                              <div className="mt-2 p-2 bg-light rounded">
+                                <Row>
+                                  <Col md={3}>
+                                    <small className="text-muted">Saldo anterior</small>
+                                    <p className="mb-0"><strong>${saldoAnterior.toFixed(2)}</strong></p>
+                                  </Col>
+                                  <Col md={3}>
+                                    <small className="text-muted">Saldo nuevo</small>
+                                    <p className="mb-0"><strong>${saldoNuevo.toFixed(2)}</strong></p>
+                                  </Col>
+                                  <Col md={3}>
+                                    <small className="text-muted">Diferencia</small>
+                                    <h4 className="mb-0 text-success">${diferencia.toFixed(2)}</h4>
+                                  </Col>
+                                  <Col md={3} s={12} className="d-flex w-100">
+                                    <Button 
+                                      variant="success" 
+                                      size="l"
+                                      className="btn-incrementos btn-success-gradient"
+                                      onClick={() => {
+                                        setSelectedIncremento(inc);
+                                        setActiveTab('asignar');
+                                      }}
+                                    >
+                                      <FiCheckCircle /> Asignar Depósitos
+                                    </Button>
+                                  </Col>
+                                </Row>
+                              </div>
+                            </Col>
+                          </Row>
+                        </Card.Body>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </Tab>
+          )}
 
           {/* ============= TAB: DEPÓSITOS ============= */}
-          <Tab eventKey="depositos" title="💵 Depósitos">
+          <Tab eventKey="depositos" title={<span><FiDollarSign /> Depósitos</span>}>
             <Card className="shadow-sm deposito-card">
               <Card.Body>
                 <h5 className="mb-3">
@@ -821,69 +1112,65 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                 
                 {incrementoMaximo > 0 && (
                   <Alert variant="info">
-                    <strong>💡 Incremento máximo disponible:</strong> ${incrementoMaximo.toFixed(2)}
+                    <FiTrendingUp /> <strong>Incremento máximo disponible:</strong> ${incrementoMaximo.toFixed(2)}
                   </Alert>
                 )}
                 
                 <Form onSubmit={handleRegistrarDeposito}>
-                  <Row>
-                    <Col md={3}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Monto *</Form.Label>
-                        <Form.Control
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={nuevoDeposito.monto}
-                          onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, monto: e.target.value })}
-                          max={incrementoMaximo > 0 ? incrementoMaximo : undefined}
-                          required
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Usuario/Tienda *</Form.Label>
-                        <Form.Select
-                          value={nuevoDeposito.usuarioId}
-                          onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, usuarioId: e.target.value })}
-                          required
-                        >
-                          <option value="">Seleccionar...</option>
-                          {usuarios.map(user => (
-                            <option key={user.id} value={user.id}>
-                              {user.displayName || `${user.tipoUsuario} - ${user.nombreCompleto}`}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Tipo de Depósito</Form.Label>
-                        <Form.Select
-                          value={nuevoDeposito.tipoDeposito}
-                          onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, tipoDeposito: e.target.value })}
-                        >
-                          <option value="efectivo">Efectivo</option>
-                          <option value="transferencia">Transferencia</option>
-                          <option value="ajuste">Ajuste</option>
-                          <option value="otro">Otro</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Referencia</Form.Label>
-                        <Form.Control
-                          type="text"
-                          placeholder="Ej: TRANS-123"
-                          value={nuevoDeposito.referencia}
-                          onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, referencia: e.target.value })}
-                        />
-                      </Form.Group>
-                    </Col>
-                  </Row>
+                  <div className="deposito-form-row">
+                    <Form.Group>
+                      <Form.Label>Monto *</Form.Label>
+                      <Form.Control
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={nuevoDeposito.monto}
+                        onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, monto: e.target.value })}
+                        max={incrementoMaximo > 0 ? incrementoMaximo : undefined}
+                        required
+                      />
+                    </Form.Group>
+                    
+                    <Form.Group>
+                      <Form.Label>Usuario/Tienda *</Form.Label>
+                      <Form.Select
+                        value={nuevoDeposito.usuarioId}
+                        onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, usuarioId: e.target.value })}
+                        required
+                      >
+                        <option value="">Seleccionar...</option>
+                        {usuarios.map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.displayName || `${user.tipoUsuario} - ${user.nombreCompleto}`}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                    
+                    <Form.Group>
+                      <Form.Label>Tipo de Depósito</Form.Label>
+                      <Form.Select
+                        value={nuevoDeposito.tipoDeposito}
+                        onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, tipoDeposito: e.target.value })}
+                      >
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="ajuste">Ajuste</option>
+                        <option value="otro">Otro</option>
+                      </Form.Select>
+                    </Form.Group>
+                    
+                    <Form.Group>
+                      <Form.Label>Referencia</Form.Label>
+                      <Form.Control
+                        type="text"
+                        placeholder="Ej: TRANS-123"
+                        value={nuevoDeposito.referencia}
+                        onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, referencia: e.target.value })}
+                      />
+                    </Form.Group>
+                  </div>
+                  
                   <Form.Group className="mb-3">
                     <Form.Label>Notas</Form.Label>
                     <Form.Control
@@ -894,8 +1181,9 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                       placeholder="Información adicional..."
                     />
                   </Form.Group>
+                  
                   <Button type="submit" variant="success" disabled={loading} className="btn-incrementos btn-success-gradient">
-                    {loading ? <Spinner size="sm" /> : '💾 Registrar Depósito'}
+                    {loading ? <Spinner size="sm" /> : <><FiSave /> Registrar Depósito</>}
                   </Button>
                 </Form>
               </Card.Body>
@@ -904,75 +1192,80 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
             <Card className="mt-3 shadow-sm">
               <Card.Body>
                 <h5 className="mb-3">
-                  📋 Depósitos Disponibles{' '}
+                  <FiFileText /> Depósitos Disponibles{' '}
                   <Badge bg="secondary">{depositosDisponibles.length}</Badge>
                 </h5>
                 {depositosDisponibles.length === 0 ? (
                   <Alert variant="info">No hay depósitos sin asignar</Alert>
                 ) : (
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Monto</th>
-                        <th>Usuario</th>
-                        <th>Tipo</th>
-                        <th>Referencia</th>
-                        <th>Fecha</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {depositosDisponibles.map(dep => (
-                        <tr key={dep.id}>
-                          <td>{dep.id}</td>
-                          <td><strong className="text-success">${parseFloat(dep.monto).toFixed(2)}</strong></td>
-                          <td>{dep.Usuario?.nombres_apellidos || dep.Usuario?.nombre_tienda}</td>
-                          <td><Badge bg="info">{dep.tipoDeposito}</Badge></td>
-                          <td>{dep.referencia || '-'}</td>
-                          <td>{new Date(dep.fecha).toLocaleDateString()}</td>
-                          <td>
-                            <Badge bg={dep.verificado ? 'success' : 'warning'}>
-                              {dep.verificado ? '✓ Verificado' : 'Pendiente'}
-                            </Badge>
-                          </td>
-                          <td>
-                            {!dep.verificado && (
-                              <Button 
-                                variant="outline-success" 
-                                size="sm"
-                                className="me-1"
-                                onClick={() => handleVerificarDeposito(dep.id)}
-                              >
-                                ✓
-                              </Button>
-                            )}
-                            <Button 
-                              variant="outline-danger" 
-                              size="sm"
-                              onClick={() => handleEliminarDeposito(dep.id)}
-                              disabled={loading}
-                            >
-                              🗑️
-                            </Button>
-                          </td>
+                  <div className="table-responsive">
+                    <Table striped bordered hover>
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Monto</th>
+                          <th>Usuario</th>
+                          <th>Tipo</th>
+                          <th>Referencia</th>
+                          <th>Fecha</th>
+                          <th>Estado</th>
+                          <th>Acciones</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </Table>
+                      </thead>
+                      <tbody>
+                        {depositosDisponibles.map(dep => (
+                          <tr key={dep.id}>
+                            <td data-label="#">{dep.id}</td>
+                            <td data-label="Monto">
+                              <strong className="text-success">${parseFloat(dep.monto).toFixed(2)}</strong>
+                            </td>
+                            <td data-label="Usuario">
+                              {dep.Usuario?.nombres_apellidos || dep.Usuario?.nombre_tienda}
+                            </td>
+                            <td data-label="Tipo">
+                              <Badge bg="info">{dep.tipoDeposito}</Badge>
+                            </td>
+                            <td data-label="Referencia">{dep.referencia || '-'}</td>
+                            <td data-label="Fecha">{new Date(dep.fecha).toLocaleDateString()}</td>
+                            <td data-label="Estado">
+                              <Badge bg={dep.verificado ? 'success' : 'warning'}>
+                                {dep.verificado ? <><FiCheckCircle /> Verificado</> : 'Pendiente'}
+                              </Badge>
+                            </td>
+                            <td data-label="Acciones">
+                              <div className="d-flex gap-1">
+                                {!dep.verificado && (
+                                  <Button 
+                                    variant="outline-success" 
+                                    size="sm"
+                                    onClick={() => handleVerificarDeposito(dep.id)}
+                                  >
+                                    <FiCheck />
+                                  </Button>
+                                )}
+                                <Button 
+                                  variant="outline-danger" 
+                                  size="sm"
+                                  onClick={() => handleEliminarDeposito(dep.id)}
+                                  disabled={loading}
+                                >
+                                  <FiTrash2 />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
                 )}
               </Card.Body>
             </Card>
           </Tab>
 
-          {/* ============= TAB: ASIGNAR ============= */}
-          <Tab eventKey="asignar" title="🔗 Asignar">
-            {!selectedIncremento ? (
-              <Alert variant="warning">
-                ⚠️ Selecciona un incremento desde la pestaña de Incrementos
-              </Alert>
-            ) : (
+          {/* ============= TAB: ASIGNAR - SOLO SI HAY INCREMENTO SELECCIONADO ============= */}
+          {selectedIncremento && (
+            <Tab eventKey="asignar" title={<span><FiLink /> Asignar</span>}>
               <div>
                 <Card className="mb-3 shadow-sm border-primary">
                   <Card.Body>
@@ -1069,7 +1362,13 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                                   <div className="resumen-valor">
                                     ${(parseFloat(selectedIncremento.diferencia) - calcularTotalSeleccionado()).toFixed(2)}
                                     <small className="d-block" style={{ fontSize: '0.7rem' }}>
-                                      ({(((parseFloat(selectedIncremento.diferencia) - calcularTotalSeleccionado()) / parseFloat(selectedIncremento.diferencia)) * 100).toFixed(1)}%)
+                                      {calcularTotalSeleccionado() > 0
+                                        ? `(${(
+                                            ((parseFloat(selectedIncremento.diferencia) - calcularTotalSeleccionado()) /
+                                              calcularTotalSeleccionado()) *
+                                            100
+                                          ).toFixed(1)}%)`
+                                        : '(Sin datos)'}
                                     </small>
                                   </div>
                                 </div>
@@ -1089,14 +1388,14 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                           />
                         </Form.Group>
 
-                        <div className="d-flex gap-2">
+                        <div className="action-btn-group">
                           <Button 
                             variant="success" 
                             onClick={handleAsignarDepositos}
                             disabled={loading || depositosSeleccionados.length === 0}
                             className="btn-incrementos btn-success-gradient"
                           >
-                            {loading ? <Spinner size="sm" /> : '✅ Confirmar Asignación'}
+                            {loading ? <Spinner size="sm" /> : <><FiCheckCircle /> Confirmar Asignación</>}
                           </Button>
                           <Button 
                             variant="outline-secondary"
@@ -1107,7 +1406,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                             }}
                             className="btn-incrementos"
                           >
-                            ✕ Cancelar
+                            <FiX /> Cancelar
                           </Button>
                         </div>
                       </>
@@ -1115,65 +1414,54 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                   </Card.Body>
                 </Card>
               </div>
-            )}
-          </Tab>
+            </Tab>
+          )}
 
-          {/* ============= TAB: REPORTES Y VERIFICACIÓN (TODO EN UNO) ============= */}
-          <Tab eventKey="reportes" title="📊 Reportes & Verificación">
+          {/* ============= TAB: REPORTES Y VERIFICACIÓN ============= */}
+          <Tab eventKey="reportes" title={<span><FiBarChart2 /> Reportes</span>}>
             
             {/* CONTROLES */}
             <Card className="mb-3 shadow-sm">
               <Card.Body>
-                <Row className="align-items-end">
-                  <Col md={3}>
-                    <Form.Group>
-                      <Form.Label className="small fw-bold">Fecha Inicio</Form.Label>
-                      <Form.Control
-                        type="date"
-                        size="sm"
-                        value={fechaInicio}
-                        min={fechaMinima}
-                        max={fechaMaxima}
-                        onChange={(e) => setFechaInicio(e.target.value)}
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={3}>
-                    <Form.Group>
-                      <Form.Label className="small fw-bold">Fecha Fin</Form.Label>
-                      <Form.Control
-                        type="date"
-                        size="sm"
-                        value={fechaFin}
-                        min={fechaInicio}
-                        max={fechaMaxima}
-                        onChange={(e) => setFechaFin(e.target.value)}
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={3}>
-                    <Button 
-                      variant="primary"
+                <div className="date-controls-row">
+                  <Form.Group>
+                    <Form.Label className="small fw-bold">
+                      <FiCalendar /> Fecha Inicio
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
                       size="sm"
-                      className="w-100 btn-incrementos btn-primary-gradient"
-                      onClick={cargarReporteCompleto}
-                      disabled={loading}
-                    >
-                      {loading ? <Spinner size="sm" /> : '🔄 Generar Reporte'}
-                    </Button>
-                  </Col>
-                  <Col md={3}>
-                    <Button 
-                      variant="success"
+                      value={fechaInicio}
+                      min={fechaMinima}
+                      max={fechaMaxima}
+                      onChange={handleFechaInicioChange}
+                    />
+                  </Form.Group>
+                  
+                  <Form.Group>
+                    <Form.Label className="small fw-bold">
+                      <FiCalendar /> Fecha Fin
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
                       size="sm"
-                      className="w-100 btn-incrementos btn-success-gradient"
-                      onClick={exportarExcel}
-                      disabled={!reporte || loading}
-                    >
-                      📥 Exportar Excel
-                    </Button>
-                  </Col>
-                </Row>
+                      value={fechaFin}
+                      min={fechaInicio}
+                      max={fechaMaxima}
+                      onChange={handleFechaFinChange}
+                    />
+                  </Form.Group>
+                  
+                  <Button 
+                    variant="success"
+                    size="sm"
+                    className="btn-incrementos btn-success-gradient"
+                    onClick={exportarExcel}
+                    disabled={!reporte || loading}
+                  >
+                    <FiDownload /> Exportar Excel
+                  </Button>
+                </div>
               </Card.Body>
             </Card>
 
@@ -1187,7 +1475,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                   className="ms-3"
                   onClick={cargarReporteCompleto}
                 >
-                  Reintentar
+                  <FiRefreshCw /> Reintentar
                 </Button>
               </Alert>
             )}
@@ -1208,10 +1496,16 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                   <Col md={3}>
                     <Card className={`text-center shadow-sm ${reporte.saldos.consistente ? 'stat-card-success' : 'stat-card-warning'}`}>
                       <Card.Body className="py-3">
-                        <div className="fs-1">{reporte.saldos.consistente ? '✅' : '⚠️'}</div>
-                        <h6 className="mb-0 text-white">{reporte.saldos.consistente ? 'Consistente' : 'Revisar'}</h6>
+                        <div className="fs-1">
+                          {reporte.saldos.consistente ? <FiCheckCircle /> : <FiAlertTriangle />}
+                        </div>
+                        <h6 className="mb-0" style={{ color: 'white !important' }}>
+                          {reporte.saldos.consistente ? 'Consistente' : 'Revisar'}
+                        </h6>
                         {!reporte.saldos.consistente && (
-                          <small className="text-white-50">Dif: {formatearMoneda(reporte.saldos.diferencia)}</small>
+                          <small style={{ color: 'rgba(255,255,255,0.8)' }}>
+                            Dif: {formatearMoneda(reporte.saldos.diferencia)}
+                          </small>
                         )}
                       </Card.Body>
                     </Card>
@@ -1219,8 +1513,8 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                   <Col md={3}>
                     <Card className="text-center shadow-sm stat-card-primary">
                       <Card.Body className="py-3">
-                        <h4 className="mb-0 text-white">{formatearMoneda(reporte.saldos.finalReal)}</h4>
-                        <small className="text-white-50">Saldo Actual</small>
+                        <h4 className="mb-0">{formatearMoneda(reporte.saldos.finalReal)}</h4>
+                        <small style={{ opacity: 0.9 }}>Saldo Actual</small>
                       </Card.Body>
                     </Card>
                   </Col>
@@ -1232,13 +1526,13 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                       <Card.Body className="py-3">
                         {reporte.totales.incrementos === 0 ? (
                           <>
-                            <h4 className="mb-0 text-white">-</h4>
-                            <small className="text-white-50">Sin incrementos en el periodo</small>
+                            <h4 className="mb-0">-</h4>
+                            <small style={{ opacity: 0.9 }}>Sin incrementos en el periodo</small>
                           </>
                         ) : (
                           <>
-                            <h4 className="mb-0 text-white">{formatearMoneda(reporte.totales.gananciaReal)}</h4>
-                            <small className="text-white-50">
+                            <h4 className="mb-0">{formatearMoneda(reporte.totales.gananciaReal)}</h4>
+                            <small style={{ opacity: 0.9 }}>
                               Ganancia ({reporte.totales.porcentajeGanancia.toFixed(2)}%)
                             </small>
                           </>
@@ -1249,8 +1543,8 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                   <Col md={3}>
                     <Card className="text-center shadow-sm stat-card-info">
                       <Card.Body className="py-3">
-                        <h4 className="mb-0 text-white">{reporte.contadores.recargas}</h4>
-                        <small className="text-white-50">Recargas</small>
+                        <h4 className="mb-0">{reporte.contadores.recargas}</h4>
+                        <small style={{ opacity: 0.9 }}>Recargas</small>
                       </Card.Body>
                     </Card>
                   </Col>
@@ -1259,7 +1553,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                 {/* RESUMEN FINANCIERO */}
                 <Card className="mb-3 shadow-sm">
                   <Card.Header className="bg-white">
-                    <h6 className="mb-0 fw-bold">📊 Resumen Financiero</h6>
+                    <h6 className="mb-0 fw-bold"><FiBarChart2 /> Resumen Financiero</h6>
                   </Card.Header>
                   <Card.Body>
                     <Row className="small">
@@ -1324,7 +1618,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                         {reporte.totales.incrementos === 0 && (
                           <Alert variant="info" className="mt-3 mb-0 py-2">
                             <small>
-                              ℹ️ No hay incrementos detectados en este periodo. 
+                              <FiAlertTriangle /> No hay incrementos detectados en este periodo. 
                               La ganancia solo se calcula cuando hay incrementos de saldo.
                             </small>
                           </Alert>
@@ -1334,164 +1628,8 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
                   </Card.Body>
                 </Card>
 
-                {/* DETALLES EXPANDIBLES */}
-                <Accordion>
-                  {/* INCREMENTOS */}
-                  <Accordion.Item eventKey="0">
-                    <Accordion.Header>
-                      <strong>📈 Incrementos</strong>
-                      <Badge bg="primary" className="ms-2">{reporte.detalles.incrementos.length}</Badge>
-                    </Accordion.Header>
-                    <Accordion.Body className="p-0">
-                      {reporte.detalles.incrementos.length === 0 ? (
-                        <div className="text-center py-3 text-muted">
-                          No hay incrementos en este periodo
-                        </div>
-                      ) : (
-                        <div className="table-responsive">
-                          <Table size="sm" hover className="mb-0">
-                            <thead className="table-light">
-                              <tr>
-                                <th className="small">Fecha</th>
-                                <th className="small">Tipo</th>
-                                <th className="small text-end">Incremento</th>
-                                <th className="small text-end">Depósito</th>
-                                <th className="small text-end">Ganancia</th>
-                                <th className="small text-end">%</th>
-                                <th className="small">Estado</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {reporte.detalles.incrementos.map(inc => (
-                                <tr key={inc.id}>
-                                  <td className="small">{inc.fecha}</td>
-                                  <td className="small">
-                                    <Badge bg="secondary" className="badge-incremento">
-                                      {inc.tipo.replace('_', ' ')}
-                                    </Badge>
-                                  </td>
-                                  <td className="small text-end text-success fw-bold">
-                                    {formatearMoneda(inc.incremento)}
-                                  </td>
-                                  <td className="small text-end">
-                                    {formatearMoneda(inc.depositosAsociados)}
-                                  </td>
-                                  <td className="small text-end text-success fw-bold">
-                                    {formatearMoneda(inc.ganancia)}
-                                  </td>
-                                  <td className="small text-end">{inc.porcentaje.toFixed(1)}%</td>
-                                  <td className="small">
-                                    <Badge bg={inc.estado === 'asignado' ? 'success' : 'warning'}>
-                                      {inc.estado}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      )}
-                    </Accordion.Body>
-                  </Accordion.Item>
-
-                  {/* DEPÓSITOS */}
-                  <Accordion.Item eventKey="1">
-                    <Accordion.Header>
-                      <strong>💰 Depósitos</strong>
-                      <Badge bg="success" className="ms-2">{reporte.detalles.depositos.length}</Badge>
-                    </Accordion.Header>
-                    <Accordion.Body className="p-0">
-                      {reporte.detalles.depositos.length === 0 ? (
-                        <div className="text-center py-3 text-muted">
-                          No hay depósitos en este periodo
-                        </div>
-                      ) : (
-                        <div className="table-responsive">
-                          <Table size="sm" hover className="mb-0">
-                            <thead className="table-light">
-                              <tr>
-                                <th className="small">Fecha</th>
-                                <th className="small text-end">Monto</th>
-                                <th className="small">Método</th>
-                                <th className="small">Usuario</th>
-                                <th className="small">Asignado</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {reporte.detalles.depositos.map(dep => (
-                                <tr key={dep.id}>
-                                  <td className="small">{dep.fecha}</td>
-                                  <td className="small text-end fw-bold">
-                                    {formatearMoneda(dep.monto)}
-                                  </td>
-                                  <td className="small">{dep.metodoPago || '-'}</td>
-                                  <td className="small">{dep.usuario || '-'}</td>
-                                  <td className="small">
-                                    <Badge bg={dep.asignado ? 'success' : 'warning'}>
-                                      {dep.asignado ? 'Sí' : 'No'}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      )}
-                    </Accordion.Body>
-                  </Accordion.Item>
-
-                  {/* RECARGAS */}
-                  <Accordion.Item eventKey="2">
-                    <Accordion.Header>
-                      <strong>🔄 Recargas</strong>
-                      <Badge bg="info" className="ms-2">{reporte.detalles.recargas.length}</Badge>
-                    </Accordion.Header>
-                    <Accordion.Body className="p-0">
-                      {reporte.detalles.recargas.length === 0 ? (
-                        <div className="text-center py-3 text-muted">
-                          No hay recargas en este periodo
-                        </div>
-                      ) : (
-                        <div className="table-responsive" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                          <Table size="sm" hover className="mb-0">
-                            <thead className="table-light sticky-top">
-                              <tr>
-                                <th className="small">Fecha</th>
-                                <th className="small">Número</th>
-                                <th className="small text-end">Valor</th>
-                                <th className="small text-end">Comisión</th>
-                                <th className="small text-end">Saldo</th>
-                                <th className="small">Estado</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {reporte.detalles.recargas.map((rec, idx) => (
-                                <tr key={idx}>
-                                  <td className="small">{rec.fecha}</td>
-                                  <td className="small">{rec.numeroRecarga || '-'}</td>
-                                  <td className="small text-end text-danger">
-                                    -{formatearMoneda(rec.valor)}
-                                  </td>
-                                  <td className="small text-end text-success">
-                                    +{formatearMoneda(rec.comision)}
-                                  </td>
-                                  <td className="small text-end">
-                                    {rec.saldoNuevo ? formatearMoneda(rec.saldoNuevo) : '-'}
-                                  </td>
-                                  <td className="small">
-                                    <Badge bg={rec.exitoso ? 'success' : 'danger'}>
-                                      {rec.exitoso ? '✓' : '✗'}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      )}
-                    </Accordion.Body>
-                  </Accordion.Item>
-                </Accordion>
+                {/* TABS HORIZONTALES PARA DETALLES */}
+                <DetallesReporteTabs reporte={reporte} formatearMoneda={formatearMoneda} />
 
                 {/* FOOTER INFO */}
                 <div className="mt-3 text-center">

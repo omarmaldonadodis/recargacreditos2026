@@ -995,13 +995,45 @@ router.post('/acreditar-saldo2/:id', authenticateToken, async (req, res) => {
     await tienda.save();
     await vendedor.save();
 
+
+    // ===== NOTIFICACIÓN POR WHATSAPP =====
+    const whatsappService = require('../services/whatsappService');
+
+    // Enviar de forma asíncrona (no bloquear respuesta)
+    setImmediate(async () => {
+      try {
+        if (credito) {
+          // Es un abono a crédito
+          await whatsappService.notificarAbono(
+            usuario.celular,
+            valor,
+            tienda.credito,
+            usuario.nombre_tienda
+          );
+        } else {
+          // Es modificación de saldo
+          await whatsappService.notificarSaldo(
+            usuario.celular,
+            valorConPorcentaje,
+            tienda.saldo,
+            usuario.nombre_tienda
+          );
+        }
+      } catch (whatsappError) {
+        console.error('Error enviando WhatsApp:', whatsappError);
+        // No afecta la operación principal
+      }
+    });
+
+
     res.status(201).json({
       mensaje: 'Saldo acreditado exitosamente',
       saldoTotal: valorConPorcentaje,
       tiendaSaldoActual: tienda.saldo,
       saldos: saldosCreados,
       valorAdeudado: tienda.credito,
-      valorAdeudadoVendedor: valorAdeudadoActualizado
+      valorAdeudadoVendedor: valorAdeudadoActualizado,
+      whatsappEnviado: true
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
