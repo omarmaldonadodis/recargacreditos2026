@@ -43,9 +43,9 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
   
   // ============= ESTADOS PARA REPORTES =============
   const [reporte, setReporte] = useState(null);
-  const [fechaMinima, setFechaMinima] = useState('2026-01-27');
+  const [fechaMinima, setFechaMinima] = useState('2026-02-09');
   const [fechaMaxima, setFechaMaxima] = useState(null);
-  const [fechaInicio, setFechaInicio] = useState('2026-01-27');
+  const [fechaInicio, setFechaInicio] = useState('2026-02-09');
   const [fechaFin, setFechaFin] = useState(null);
   const [reporteError, setReporteError] = useState(null);
   
@@ -236,7 +236,7 @@ const cargarDatos = async () => {
     try {
       const params = new URLSearchParams({
         proveedor,
-        fechaInicio: fechaInicio || '2026-01-27',
+        fechaInicio: fechaInicio || '2026-02-09',
         fechaFin: fechaFin || new Date().toISOString().split('T')[0],
         timezone
       });

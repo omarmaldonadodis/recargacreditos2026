@@ -1238,6 +1238,10 @@ const formatDateGTM6 = (dateString) => {
           };
           break;
         case "ventas":
+
+          if (item.exitoso === false) {
+            return; 
+          }
           rowData = {
             fecha: formatDateGTM6(item.fecha).split(",")[0],
             hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",      folio: item.folio || "",

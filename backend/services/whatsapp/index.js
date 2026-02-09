@@ -1,6 +1,7 @@
 // backend/services/whatsapp/index.js
 const BaileysProvider = require('./BaileysProvider');
 const TwilioProvider = require('./TwilioProvider');
+const WhapiProvider = require('./WhapiProvider');
 
 /**
  * Factory que retorna el proveedor de WhatsApp configurado
@@ -13,11 +14,17 @@ function createWhatsAppProvider() {
     throw new Error('WhatsApp está desactivado');
   }
 
-  const provider = process.env.WHATSAPP_PROVIDER || 'baileys';
+  const provider = process.env.WHATSAPP_PROVIDER || 'whapi';
 
   console.log(`📱 Configurando proveedor de WhatsApp: ${provider.toUpperCase()}`);
 
   switch (provider.toLowerCase()) {
+    case 'whapi':
+      return new WhapiProvider(
+        process.env.WHAPI_API_TOKEN,
+        process.env.WHAPI_CHANNEL_ID // Opcional
+      );
+
     case 'twilio':
       return new TwilioProvider(
         process.env.TWILIO_ACCOUNT_SID,
@@ -26,8 +33,14 @@ function createWhatsAppProvider() {
       );
 
     case 'baileys':
-    default:
       return new BaileysProvider();
+
+    default:
+      console.warn(`⚠️ Proveedor desconocido: ${provider}. Usando Whapi como predeterminado.`);
+      return new WhapiProvider(
+        process.env.WHAPI_API_TOKEN,
+        process.env.WHAPI_CHANNEL_ID
+      );
   }
 }
 
