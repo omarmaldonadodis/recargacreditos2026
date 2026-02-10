@@ -21,7 +21,7 @@ const AsignacionDeposito = require('../models/AsignacionDeposito');
  */
 router.get('/reporte-completo', async (req, res) => {
   try {
-    const { proveedor, fechaInicio, fechaFin, timezone = 'America/Guayaquil' } = req.query;
+    const { proveedor, fechaInicio, fechaFin, timezone = 'America/Mexico_City' } = req.query;
 
     if (!proveedor) {
       return res.status(400).json({ error: 'Proveedor requerido' });
@@ -149,6 +149,7 @@ router.get('/reporte-completo', async (req, res) => {
       WHERE proveedor = ?
         AND fecha >= ?
         AND fecha <= ?
+        AND exitoso = true
       ORDER BY fecha ASC
     `, {
       replacements: [proveedor, fechaInicioUTC, fechaFinUTC],

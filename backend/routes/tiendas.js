@@ -378,7 +378,6 @@ router.get('/recargas', authenticateToken, async (req, res) => {
 
 const gestopagoService = require('../services/gestopagoService');
 
-
 router.post('/recargas2', authenticateToken, async (req, res) => {
   const { latitud, longitud, operadora, tipo, valor, celular, idServicio, idProducto } = req.body;
 
@@ -469,18 +468,17 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
       });
     }
 
-        // ==== EMPIEZO A MODIFICAR ====
-
+    // ==== OBTENER PROVEEDOR Y ÚLTIMO SALDO ====
     const gestopagoService = require('../services/gestopagoService');
     const proveedor = gestopagoService.getProveedor(operadora);
     
     console.log(`📱 Recarga de ${operadora} → Proveedor: ${proveedor}`);
 
-    // ==== OBTENER ÚLTIMO SALDO DEL MISMO PROVEEDOR ====
+    // Obtener último saldo del mismo proveedor
     const Recarga = require('../models/Recarga');
     const ultimaRecarga = await Recarga.findOne({
       where: {
-        proveedor: proveedor,  // MISMO PROVEEDOR
+        proveedor: proveedor,
         saldoGestopago: { [Op.ne]: null }
       },
       order: [['fecha', 'DESC']]
@@ -489,11 +487,6 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
     const saldoAnteriorGestopago = ultimaRecarga ? ultimaRecarga.saldoGestopago : null;
     
     console.log(`💰 Último saldo de ${proveedor}: $${saldoAnteriorGestopago || 'N/A'}`);
-    
-
-        // ==== TERMINO ====
-
-
 
     // ==== LLAMAR A GESTOPAGO ====
     try {
@@ -507,11 +500,11 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
       });
 
       if (respuestaGestopago.exitoso) {
-
         console.log('=== GUARDANDO RECARGA ===');
         console.log('Saldo GestoPago:', respuestaGestopago.saldo);
         console.log('Comisión:', respuestaGestopago.comision);
         console.log('========================');
+        
         tienda.saldo -= valor;
 
         if (usuario.rol === 'vendedor') {
@@ -540,71 +533,65 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           exitoso: true,
           codigoError: null,
           mensajeError: null,
-          proveedor: proveedor,  // GUARDAR PROVEEDOR
-
+          proveedor: proveedor,
           saldoGestopago: respuestaGestopago.saldo,
           comision: respuestaGestopago.comision
         });
 
-                console.log(`✅ Nuevo saldo de ${proveedor}: $${respuestaGestopago.saldo}`);
+        console.log(`✅ Nuevo saldo de ${proveedor}: $${respuestaGestopago.saldo}`);
 
-                // ===== REGISTRAR EVENTO DE SALDO =====
-                const contabilidadService = require('../services/contabilidadService');
+        // ===== REGISTRAR EVENTO DE SALDO =====
+        const contabilidadService = require('../services/contabilidadService');
 
-                await contabilidadService.registrarEvento({
-                  proveedor: proveedor,
-                  saldo: respuestaGestopago.saldo,
-                  tipoEvento: 'recarga',
-                  detalles: {
-                    recargaId: nuevaRecarga.id,
-                    valor: valor,
-                    comision: respuestaGestopago.comision,
-                    operadora: operadora
-                  },
-                  RecargaId: nuevaRecarga.id
-                });
+        await contabilidadService.registrarEvento({
+          proveedor: proveedor,
+          saldo: respuestaGestopago.saldo,
+          tipoEvento: 'recarga',
+          detalles: {
+            recargaId: nuevaRecarga.id,
+            valor: valor,
+            comision: respuestaGestopago.comision,
+            operadora: operadora
+          },
+          RecargaId: nuevaRecarga.id
+        });
 
-                // ===== DETECTAR INCREMENTOS =====
-                const ConfiguracionSistema = require('../models/ConfiguracionSistema');
-                const deteccionConfig = await ConfiguracionSistema.findOne({
-                  where: { clave: 'deteccion_incrementos_habilitada' }
-                });
+        // ===== DETECTAR INCREMENTOS =====
+        const ConfiguracionSistema = require('../models/ConfiguracionSistema');
+        const deteccionConfig = await ConfiguracionSistema.findOne({
+          where: { clave: 'deteccion_incrementos_habilitada' }
+        });
 
-                const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
+        const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
 
-                if (deteccionHabilitada && saldoAnteriorGestopago && respuestaGestopago.saldo) {
-                  
-                  if (proveedor === 'general') {
-                    // Detectar incremento para GENERAL
-                    await contabilidadService.detectarIncrementoGeneral({
-                      saldoAnterior: saldoAnteriorGestopago,
-                      saldoNuevo: respuestaGestopago.saldo,
-                      valor: valor,
-                      comision: respuestaGestopago.comision,
-                      RecargaId: nuevaRecarga.id,
-                      operadora: operadora
-                    });
-                    
-                  } else if (proveedor === 'movistar') {
-                    // Detectar incremento para MOVISTAR
-                    await contabilidadService.detectarIncrementoMovistar({
-                      saldoAnterior: saldoAnteriorGestopago,
-                      saldoNuevo: respuestaGestopago.saldo,
-                      valor: valor,
-                      comision: respuestaGestopago.comision,
-                      RecargaId: nuevaRecarga.id,
-                      operadora: operadora
-                    });
-                  }
-                }
+        if (deteccionHabilitada && saldoAnteriorGestopago && respuestaGestopago.saldo) {
+          if (proveedor === 'general') {
+            await contabilidadService.detectarIncrementoGeneral({
+              saldoAnterior: saldoAnteriorGestopago,
+              saldoNuevo: respuestaGestopago.saldo,
+              valor: valor,
+              comision: respuestaGestopago.comision,
+              RecargaId: nuevaRecarga.id,
+              operadora: operadora
+            });
+          } else if (proveedor === 'movistar') {
+            await contabilidadService.detectarIncrementoMovistar({
+              saldoAnterior: saldoAnteriorGestopago,
+              saldoNuevo: respuestaGestopago.saldo,
+              valor: valor,
+              comision: respuestaGestopago.comision,
+              RecargaId: nuevaRecarga.id,
+              operadora: operadora
+            });
+          }
+        }
 
         const response = {
           success: true,
           mensaje: 'Recarga exitosa',
           folio: respuestaGestopago.folio,
           saldo_restante: tienda.saldo,
-          cupo_disponible: tienda.cupo,
-
+          cupo_disponible: tienda.cupo
         };
 
         if (nuevoToken) {
@@ -625,7 +612,7 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           exitoso: false,
           codigoError: respuestaGestopago.codigo,
           mensajeError: respuestaGestopago.mensaje,
-          proveedor: proveedor,  // GUARDAR PROVEEDOR
+          proveedor: proveedor,
           saldoGestopago: respuestaGestopago.saldo,
           comision: respuestaGestopago.comision
         });
@@ -639,6 +626,7 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
       }
 
     } catch (errorGestopago) {
+      // ===== ERROR: DUPLICADO =====
       if (errorGestopago.codigo === 'DUPLICADO') {
         await Recarga.create({
           TiendaId: tienda.id,
@@ -649,11 +637,10 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           folio: null,
           exitoso: false,
           codigoError: null,
-          proveedor: proveedor || null,
+          proveedor: proveedor,
           mensajeError: 'Transacción duplicada',
-
-          saldoGestopago: respuestaGestopago.saldo,
-          comision: respuestaGestopago.comision
+          saldoGestopago: null,
+          comision: null
         });
 
         return res.status(409).json({
@@ -663,7 +650,10 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
         });
       }
 
+      // ===== ERROR: TIMEOUT =====
       if (errorGestopago.codigo === 'TIMEOUT') {
+        const mensajeTimeout = 'Tiempo de espera agotado - Verificación pendiente';
+        
         await Recarga.create({
           TiendaId: tienda.id,
           operadora,
@@ -672,15 +662,14 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           celular,
           folio: null,
           exitoso: false,
-          proveedor: proveedor || null,
-
-          mensajeError: 'Tiempo de espera agotado',
-
-          saldoGestopago: respuestaGestopago.saldo,
-          comision: respuestaGestopago.comision
+          proveedor: proveedor,
+          codigoError: null,
+          mensajeError: mensajeTimeout,
+          saldoGestopago: null,
+          comision: null
         });
 
-                // Guardar datos para verificación posterior
+        // Guardar datos para verificación posterior
         const datosVerificacion = {
           usuarioId,
           operadora,
@@ -689,15 +678,19 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           idProducto,
           valor,
           tipo,
-          tienda,
-          usuario,
-          nuevoToken
+          tiendaId: tienda.id,
+          usuarioRol: usuario.rol,
+          credito: tienda.credito,
+          valorRecargasActual: usuario.valor_recargas || 0,
+          nuevoToken,
+          proveedor,
+          saldoAnteriorGestopago
         };
 
         // Programar verificación automática en 30 segundos
         setTimeout(async () => {
           try {
-            console.log(`[AUTO-VERIFICACIÓN] Verificando recarga ${celular}`);
+            console.log(`[AUTO-VERIFICACIÓN] Verificando recarga ${datosVerificacion.celular}`);
             
             const resultadoConfirmacion = await gestopagoService.confirmarTransaccion({
               operadora: datosVerificacion.operadora,
@@ -707,6 +700,8 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
             });
 
             if (resultadoConfirmacion.exitoso) {
+              console.log(`✅ Verificación exitosa. Folio: ${resultadoConfirmacion.folio}`);
+              
               // Recargar datos actualizados de la BD
               const usuarioActualizado = await Usuario.findByPk(datosVerificacion.usuarioId);
               const tiendaActualizada = await Tienda.findOne({ 
@@ -717,100 +712,101 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
               tiendaActualizada.saldo -= datosVerificacion.valor;
 
               // Aplicar lógica de vendedor
-              if (usuarioActualizado.rol === 'vendedor') {
-                const maxIncremento = tiendaActualizada.credito - (usuarioActualizado.valor_recargas || 0);
+              if (datosVerificacion.usuarioRol === 'vendedor') {
+                const maxIncremento = datosVerificacion.credito - datosVerificacion.valorRecargasActual;
                 
                 if (datosVerificacion.valor > maxIncremento) {
-                  usuarioActualizado.valor_recargas = (usuarioActualizado.valor_recargas || 0) + maxIncremento;
+                  usuarioActualizado.valor_recargas = datosVerificacion.valorRecargasActual + maxIncremento;
                 } else {
-                  usuarioActualizado.valor_recargas = (usuarioActualizado.valor_recargas || 0) + datosVerificacion.valor;
+                  usuarioActualizado.valor_recargas = datosVerificacion.valorRecargasActual + datosVerificacion.valor;
                 }
                 
                 usuarioActualizado.valor_recargas = Math.min(
                   usuarioActualizado.valor_recargas, 
-                  tiendaActualizada.credito
+                  datosVerificacion.credito
                 );
               }
 
               await tiendaActualizada.save();
               await usuarioActualizado.save();
 
-              // Actualizar recarga fallida a exitosa
-              await Recarga.update(
-                {
+              // Buscar y actualizar la recarga fallida
+              const recargaActualizada = await Recarga.findOne({
+                where: {
+                  TiendaId: datosVerificacion.tiendaId,
+                  celular: datosVerificacion.celular,
+                  valor: datosVerificacion.valor,
+                  exitoso: false,
+                  mensajeError: mensajeTimeout
+                },
+                order: [['createdAt', 'DESC']]
+              });
+
+              if (recargaActualizada) {
+                await recargaActualizada.update({
                   exitoso: true,
                   folio: resultadoConfirmacion.folio,
-                  safolio: resultadoConfirmacion.folio,
                   saldoGestopago: resultadoConfirmacion.saldo,
+                  comision: resultadoConfirmacion.comision,
                   mensajeError: null,
                   codigoError: null
-                },
-                {
-                  where: {
-                    TiendaId: tiendaActualizada.id,
-                    celular: datosVerificacion.celular,
+                });
+
+                // Registrar evento de saldo
+                const contabilidadService = require('../services/contabilidadService');
+
+                await contabilidadService.registrarEvento({
+                  proveedor: datosVerificacion.proveedor,
+                  saldo: resultadoConfirmacion.saldo,
+                  tipoEvento: 'recarga',
+                  detalles: {
+                    recargaId: recargaActualizada.id,
                     valor: datosVerificacion.valor,
-                    exitoso: false,
-                    mensajeError: 'Tiempo de espera agotado - Verificación pendiente'
+                    comision: resultadoConfirmacion.comision,
+                    operadora: datosVerificacion.operadora
                   },
-                  order: [['createdAt', 'DESC']],
-                  limit: 1
+                  RecargaId: recargaActualizada.id
+                });
+
+                // Detectar incrementos
+                const ConfiguracionSistema = require('../models/ConfiguracionSistema');
+                const deteccionConfig = await ConfiguracionSistema.findOne({
+                  where: { clave: 'deteccion_incrementos_habilitada' }
+                });
+
+                const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
+
+                if (deteccionHabilitada && datosVerificacion.saldoAnteriorGestopago && resultadoConfirmacion.saldo) {
+                  if (datosVerificacion.proveedor === 'general') {
+                    await contabilidadService.detectarIncrementoGeneral({
+                      saldoAnterior: datosVerificacion.saldoAnteriorGestopago,
+                      saldoNuevo: resultadoConfirmacion.saldo,
+                      valor: datosVerificacion.valor,
+                      comision: resultadoConfirmacion.comision,
+                      RecargaId: recargaActualizada.id,
+                      operadora: datosVerificacion.operadora
+                    });
+                  } else if (datosVerificacion.proveedor === 'movistar') {
+                    await contabilidadService.detectarIncrementoMovistar({
+                      saldoAnterior: datosVerificacion.saldoAnteriorGestopago,
+                      saldoNuevo: resultadoConfirmacion.saldo,
+                      valor: datosVerificacion.valor,
+                      comision: resultadoConfirmacion.comision,
+                      RecargaId: recargaActualizada.id,
+                      operadora: datosVerificacion.operadora
+                    });
+                  }
                 }
-              );
-              // ===== REGISTRAR EVENTO DE SALDO =====
-              const contabilidadService = require('../services/contabilidadService');
 
-              await contabilidadService.registrarEvento({
-                proveedor: proveedor,
-                saldo: respuestaGestopago.saldo,
-                tipoEvento: 'recarga',
-                detalles: {
-                  recargaId: nuevaRecarga.id,
-                  valor: valor,
-                  comision: respuestaGestopago.comision,
-                  operadora: operadora
-                },
-                RecargaId: nuevaRecarga.id
-              });
-
-              // ===== DETECTAR INCREMENTOS =====
-              const ConfiguracionSistema = require('../models/ConfiguracionSistema');
-              const deteccionConfig = await ConfiguracionSistema.findOne({
-                where: { clave: 'deteccion_incrementos_habilitada' }
-              });
-
-              const deteccionHabilitada = deteccionConfig && deteccionConfig.valor === 'true';
-
-              if (deteccionHabilitada && saldoAnteriorGestopago && respuestaGestopago.saldo) {
-                
-                if (proveedor === 'general') {
-                  // Detectar incremento para GENERAL
-                  await contabilidadService.detectarIncrementoGeneral({
-                    saldoAnterior: saldoAnteriorGestopago,
-                    saldoNuevo: respuestaGestopago.saldo,
-                    valor: valor,
-                    comision: respuestaGestopago.comision,
-                    RecargaId: nuevaRecarga.id,
-                    operadora: operadora
-                  });
-                  
-                } else if (proveedor === 'movistar') {
-                  // Detectar incremento para MOVISTAR
-                  await contabilidadService.detectarIncrementoMovistar({
-                    saldoAnterior: saldoAnteriorGestopago,
-                    saldoNuevo: respuestaGestopago.saldo,
-                    valor: valor,
-                    comision: respuestaGestopago.comision,
-                    RecargaId: nuevaRecarga.id,
-                    operadora: operadora
-                  });
-                }
+                console.log(`✅ Recarga actualizada exitosamente en BD`);
+              } else {
+                console.error('❌ No se encontró la recarga para actualizar');
               }
 
-
-
             } else {
-              // Actualizar mensaje de error en la recarga fallida
+              // Verificación fallida
+              console.log(`✗ Verificación fallida: ${resultadoConfirmacion.mensaje}`);
+              
               await Recarga.update(
                 {
                   mensajeError: `Verificación fallida: ${resultadoConfirmacion.mensaje}`,
@@ -818,25 +814,22 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
                 },
                 {
                   where: {
-                    TiendaId: tienda.id,
+                    TiendaId: datosVerificacion.tiendaId,
                     celular: datosVerificacion.celular,
                     valor: datosVerificacion.valor,
                     exitoso: false,
-                    mensajeError: 'Tiempo de espera agotado - Verificación pendiente'
+                    mensajeError: mensajeTimeout
                   },
                   order: [['createdAt', 'DESC']],
                   limit: 1
                 }
               );
-
-              console.log(`✗ Verificación fallida: ${resultadoConfirmacion.mensaje}`);
             }
 
           } catch (err) {
-            console.error('Error en verificación automática:', err);
+            console.error('❌ Error en verificación automática:', err);
           }
         }, 30000);
-
 
         return res.status(504).json({
           success: false,
@@ -844,7 +837,8 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
           tipo: 'timeout'
         });
       }
-     // ===== OTROS ERRORES DE RED - GUARDAR COMO FALLIDA =====
+
+      // ===== OTROS ERRORES DE RED =====
       await Recarga.create({
         TiendaId: tienda.id,
         operadora,
@@ -854,9 +848,9 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
         folio: null,
         exitoso: false,
         codigoError: null,
-
-          saldoGestopago: respuestaGestopago.saldo,
-          comision: respuestaGestopago.comision,
+        proveedor: proveedor,
+        saldoGestopago: null,
+        comision: null,
         mensajeError: errorGestopago.mensaje || 'Error de conexión con el servicio de recargas'
       });
 

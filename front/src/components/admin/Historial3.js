@@ -1114,272 +1114,278 @@ if (sortConfig.key) {
 };
 
 
-  const exportToExcel = async () => {
-    // Capturar el estado actual al inicio de la función
-    const selectedOptionSnapshot = selectedOption;
-    const startDateSnapshot = startDate || new Date('2024-10-01'); // 1/10/2024
-    const endDateSnapshot = endDate || new Date(); // Fecha actual
-    // Obtener la clave interna y el título basado en el mapeo
-    const optionMap = {
-      General: { internalOption: "general", title: "General" },
-      Aperturas: { internalOption: "aperturas", title: "Aperturas" },
-      Saldos: { internalOption: "saldos", title: "Saldos" },
-      Abonos: { internalOption: "abonos", title: "Abonos" },
-      "Depósitos": { internalOption: "depósitos", title: "Depósitos" },
-      "Recepción de saldo": { internalOption: "recepción de saldo", title: "Recepción de saldo" },
-      Recargas: { internalOption: "recargas", title: "Recargas" },
-    };
-    const selectedOptionData = optionMap[selectedOptionSnapshot];
-    const internalOption = selectedOptionData?.internalOption || "";
-    const title = selectedOptionData?.title || selectedOptionSnapshot;
+const exportToExcel = async () => {
+  // Capturar el estado actual al inicio de la función
+  const selectedOptionSnapshot = selectedOption;
+  const startDateSnapshot = startDate || new Date('2024-10-01'); // 1/10/2024
+  const endDateSnapshot = endDate || new Date(); // Fecha actual
+  
+  // Obtener la clave interna y el título basado en el mapeo
+  const optionMap = {
+    General: { internalOption: "general", title: "General" },
+    Aperturas: { internalOption: "aperturas", title: "Aperturas" },
+    Saldos: { internalOption: "saldos", title: "Saldos" },
+    Abonos: { internalOption: "abonos", title: "Abonos" },
+    "Depósitos": { internalOption: "depósitos", title: "Depósitos" },
+    "Recepción de saldo": { internalOption: "recepción de saldo", title: "Recepción de saldo" },
+    Recargas: { internalOption: "recargas", title: "Recargas" },
+  };
+  
+  const selectedOptionData = optionMap[selectedOptionSnapshot];
+  const internalOption = selectedOptionData?.internalOption || "";
+  const title = selectedOptionData?.title || selectedOptionSnapshot;
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Historial");
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Historial");
 
-    // Determinar las columnas basadas en la clave interna
-    const columns = (() => {
-      switch (internalOption) {
-        case "general":
-          return [
-            { header: "Timestamp", key: "fecha", width: 25 },
-            { header: "Movimiento", key: "titulo", width: 20 },
+  // Determinar las columnas basadas en la clave interna
+  const columns = (() => {
+    switch (internalOption) {
+      case "general":
+        return [
+          { header: "Timestamp", key: "fecha", width: 25 },
+          { header: "Movimiento", key: "titulo", width: 20 },
+          { header: "Autor", key: "autor", width: 25 },
+          { header: "Usuario", key: "usuario", width: 25 },
+          { header: "Cantidad", key: "valor", width: 25 },
+        ];
+      case "aperturas":
+        return [
+          { header: "Nombre", key: "nombre", width: 25 },
+          { header: "Fecha Creación", key: "createdAt", width: 20 },
+          { header: "Fecha De Eliminación", key: "updatedAt", width: 20 },
+          { header: "Celular", key: "celular", width: 15 },
+          { header: "Ubicación", key: "ubicacion", width: 30 },
+          { header: "Promedio Semanal", key: "promedioSemanal", width: 20 },
+          { header: "Vendedor", key: "vendedor", width: 25 },
+        ];
+      case "saldos":
+        return [
+          { header: "Tienda", key: "tienda", width: 25 },
+          { header: "Fecha", key: "fecha", width: 15 },
+          { header: "Hora", key: "hora", width: 15 },
+          { header: "Cantidad", key: "valor", width: 15 },
+          { header: "Vendedor", key: "vendedor", width: 25 },
+        ];
+      case "abonos":
+        return [
+          { header: "Fecha", key: "fecha", width: 15 },
+          { header: "Hora", key: "hora", width: 15 },
+          { header: "Cantidad", key: "valor", width: 15 },
+          { header: "Tipo", key: "tipo", width: 50 },
+        ];
+      case "depósitos":
+        return [
+          { header: "Fecha", key: "fecha", width: 15 },
+          { header: "Hora", key: "hora", width: 15 },
+          { header: "Cantidad", key: "valor", width: 15 },
+          { header: "Tipo", key: "tipo", width: 50 },
+        ];
+      case "recepción de saldo":
+        return [
+          { header: "Fecha", key: "fecha", width: 15 },
+          { header: "Hora", key: "hora", width: 15 },
+          { header: "Cantidad", key: "valor", width: 15 },
+          { header: "Tipo", key: "tipo", width: 50 },
+        ];
+      case "recargas":
+        return [
+          { header: "Fecha", key: "fecha", width: 15 },
+          { header: "Hora", key: "hora", width: 15 },
+          { header: "Folio", key: "folio", width: 15 },
+          { header: "Número", key: "numero", width: 20 },
+          { header: "Cantidad", key: "cantidad", width: 15 },
+          { header: "Compañía", key: "compania", width: 20 },
+          { header: "Clase", key: "clase", width: 15 },
+          { header: "Estado", key: "exitoso", width: 15 },
+          { header: "Mensaje", key: "mensajeError", width: 30 },
+          { header: "Vendedor", key: "vendedor", width: 25 },
+        ];
+      default:
+        return [];
+    }
+  })();
 
-            { header: "Autor", key: "autor", width: 25 },
-            { header: "Usuario", key: "usuario", width: 25 },
-            { header: "Cantidad", key: "valor", width: 25 },
-          ];
-        case "aperturas":
-          return [
-            { header: "Nombre", key: "nombre", width: 25 },
-            { header: "Fecha Creación", key: "createdAt", width: 20 },
-            { header: "Fecha De Eliminación", key: "updatedAt", width: 20 },
-            { header: "Celular", key: "celular", width: 15 },
-            { header: "Ubicación", key: "ubicacion", width: 30 },
-            { header: "Promedio Semanal", key: "promedioSemanal", width: 20 },
-            { header: "Vendedor", key: "vendedor", width: 25 },
-          ];
-        case "saldos":
-          return [
-            { header: "Tienda", key: "tienda", width: 25 },
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Vendedor", key: "vendedor", width: 25 },
-          ];
-        case "abonos":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Tipo", key: "tipo", width: 50 },
-          ];
-        case "depósitos":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Tipo", key: "tipo", width: 50 },
-          ];
-        case "recepción de saldo":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Cantidad", key: "valor", width: 15 },
-            { header: "Tipo", key: "tipo", width: 50 },
-          ];
-        case "recargas":
-          return [
-            { header: "Fecha", key: "fecha", width: 15 },
-            { header: "Hora", key: "hora", width: 15 },
-            { header: "Folio", key: "folio", width: 15 },
-            { header: "Número", key: "numero", width: 20 },
-            { header: "Cantidad", key: "cantidad", width: 15 },
-            { header: "Compañía", key: "compania", width: 20 },
-            { header: "Clase", key: "clase", width: 15 },
-            { header: "Estado", key: "exitoso", width: 15 },
-            { header: "Mensaje", key: "mensajeError", width: 30 },
-            { header: "Vendedor", key: "vendedor", width: 25 },
-          ];
-        default:
-          return [];
-      }
-    })();
+  // Número de columnas
+  const columnCount = columns.length;
 
-    // Número de columnas
-    const columnCount = columns.length;
+  // Agregar encabezado con título y fechas
+  worksheet.mergeCells(1, 1, 1, columnCount);
+  worksheet.getCell("A1").value = title;
+  worksheet.getCell("A1").font = { size: 16, bold: true };
+  worksheet.getCell("A1").alignment = { horizontal: "center" };
 
-    // Agregar encabezado con título y fechas
-    worksheet.mergeCells(1, 1, 1, columnCount);
-    worksheet.getCell("A1").value = title;
-    worksheet.getCell("A1").font = { size: 16, bold: true };
-    worksheet.getCell("A1").alignment = { horizontal: "center" };
+  // Establecer fechas
+  worksheet.mergeCells(2, 1, 2, columnCount);
+  worksheet.getCell(
+    "A2"
+  ).value = `Fecha de Inicio: ${startDateSnapshot.toLocaleDateString()}  |  Fecha de Corte: ${endDateSnapshot.toLocaleDateString()}`;
+  worksheet.getCell("A2").font = { size: 12 };
+  worksheet.getCell("A2").alignment = { horizontal: "center" };
 
-    // Establecer fechas
-    worksheet.mergeCells(2, 1, 2, columnCount);
-    worksheet.getCell(
-      "A2"
-    ).value = `Fecha de Inicio: ${startDateSnapshot.toLocaleDateString()}  |  Fecha de Corte: ${endDateSnapshot.toLocaleDateString()}`;
-    worksheet.getCell("A2").font = { size: 12 };
-    worksheet.getCell("A2").alignment = { horizontal: "center" };
+  // Eliminar 'header' de las columnas al configurar worksheet.columns
+  const columnsWithoutHeader = columns.map(({ header, ...rest }) => rest);
+  worksheet.columns = columnsWithoutHeader;
 
-    // Eliminar 'header' de las columnas al configurar worksheet.columns
-    const columnsWithoutHeader = columns.map(({ header, ...rest }) => rest);
-    worksheet.columns = columnsWithoutHeader;
+  // Estilo de fondo celeste y letras blancas para los encabezados de columna (fila 3)
+  worksheet.getRow(3).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  worksheet.getRow(3).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "00aae4" } };
 
-    // Estilo de fondo celeste y letras blancas para los encabezados de columna (fila 3)
-    worksheet.getRow(3).font = { bold: true, color: { argb: "FFFFFFFF" } };
-    worksheet.getRow(3).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "00aae4" } };
+  // Agregar los encabezados de columna manualmente con filtro automático
+  columns.forEach((column, index) => {
+    const cell = worksheet.getCell(3, index + 1);
+    cell.value = column.header;
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } }; // Blanco y negrita
+    cell.alignment = { horizontal: "center" };
+  });
 
-    // Agregar los encabezados de columna manualmente con filtro automático
-    columns.forEach((column, index) => {
-      const cell = worksheet.getCell(3, index + 1);
-      cell.value = column.header;
-      cell.font = { bold: true, color: { argb: "FFFFFFFF" } }; // Blanco y negrita
-      cell.alignment = { horizontal: "center" };
-    });
+  worksheet.autoFilter = { from: "A3", to: `${String.fromCharCode(64 + columnCount)}3` }; // Aplicar filtro automático
 
-    worksheet.autoFilter = { from: "A3", to: `${String.fromCharCode(64 + columnCount)}3` }; // Aplicar filtro automático
+  // Iniciar desde la fila 4 para dejar espacio al encabezado
+  const startingRow = 4;
 
-    // Iniciar desde la fila 4 para dejar espacio al encabezado
-    const startingRow = 4;
+  // Crear un formateador de moneda
+  const currencyFormatter = new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  });
 
-    // Crear un formateador de moneda
-    const currencyFormatter = new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-    });
+  // 👇 FILTRAR LOS DATOS ANTES DE PROCESARLOS
+  const dataToExport = filteredData.filter(item => {
+    // Si es recarga y no es exitosa, excluirla
+    if (internalOption === "recargas" && item.exitoso === false) {
+      return false;
+    }
+    return true;
+  });
 
-    // Agregar datos
-    filteredData.forEach((item, dataIndex) => {
-      let rowData = {};
-      switch (internalOption) {
-        case "general":
-          rowData = {
-            fecha: formatDateGTM6(item.fecha),
-            titulo: 
-
+  // 👇 USAR dataToExport EN LUGAR DE filteredData
+  dataToExport.forEach((item, dataIndex) => {
+    let rowData = {};
+    switch (internalOption) {
+      case "general":
+        rowData = {
+          fecha: formatDateGTM6(item.fecha),
+          titulo: 
             ((item.titulo === "Recarga") && 
               item.exitoso === false
                 ? `${item.titulo} no exitosa`
                 : item.titulo
             ) || "",
-
-            autor: item.autor || "",
-            usuario: item.usuario || "",
-
-            valor: typeof item.valor === "number"
-              ? parseFloat(item.valor.toFixed(2))
-              : 0,
-            // Convertir y formatear solo si el valor existe
-          };
-          break;
-        case "aperturas":
-          rowData = {
-            nombre: item.usuario?.nombres_apellidos || item.usuario?.nombre_tienda || "",
-            createdAt: formatDateGTM6(item.createdAt),
-            updatedAt: item.usuario?.eliminado
-              ? formatDateGTM6(item.updatedAt) 
+          autor: item.autor || "",
+          usuario: item.usuario || "",
+          valor: typeof item.valor === "number"
+            ? parseFloat(item.valor.toFixed(2))
+            : 0,
+        };
+        break;
+      case "aperturas":
+        rowData = {
+          nombre: item.usuario?.nombres_apellidos || item.usuario?.nombre_tienda || "",
+          createdAt: formatDateGTM6(item.createdAt),
+          updatedAt: item.usuario?.eliminado
+            ? formatDateGTM6(item.updatedAt) 
+            : "",
+          celular: item.usuario?.celular ? item.usuario.celular.slice(-10) : "",
+          ubicacion:
+            item.latitud != null && item.longitud != null
+              ? `${Number(item.latitud).toFixed(5)}, ${Number(item.longitud).toFixed(5)}`
               : "",
-            celular: item.usuario?.celular ? item.usuario.celular.slice(-10) : "",
-            ubicacion:
-              item.latitud != null && item.longitud != null
-                ? `${Number(item.latitud).toFixed(5)}, ${Number(item.longitud).toFixed(5)}`
-                : "",
-            // Se formatea el promedio solo si no es nulo; en caso contrario se pone "0.00"
-            promedioSemanal: typeof item.promedioSemanal === "number"
-              ? parseFloat(item.promedioSemanal.toFixed(2))
-              : 0,
-            vendedor: item.creador?.nombres_apellidos || item.creador?.correo || "",
-          };
-          break;
-        case "saldos":
-          rowData = {
-            tienda: item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || "",
-            fecha: formatDateGTM6(item.fecha).split(",")[0],
-            hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
-            valor: typeof item.valor === "number"
-              ? parseFloat(item.valor.toFixed(2))
-              : 0,
-            vendedor: item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || "",
-          };
-          break;
-        case "abonos":
-          rowData = {
-            fecha: formatDateGTM6(item.fecha).split(",")[0],
-            hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
-            valor: typeof item.valor === "number"
-              ? parseFloat(item.valor.toFixed(2))
-              : 0,
-            tipo: item.tipo === "Deposito"
-              ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
-              : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
-          };
-          break;
-        case "depósitos":
-          rowData = {
-            fecha: formatDateGTM6(item.fecha).split(",")[0],
-            hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
-            valor: typeof item.valor === "number"
-              ? parseFloat(item.valor.toFixed(2))
-              : 0,
-            tipo: item.tipo === "Deposito"
-              ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
-              : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
-          };
-          break;
-        case "recepción de saldo":
-          rowData = {
-            fecha: formatDateGTM6(item.fecha).split(",")[0],
-            hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
-            valor: typeof item.valor === "number"
-              ? parseFloat(item.valor.toFixed(2))
-              : 0,
-            tipo: item.tipo === "Deposito"
-              ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
-              : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
-          };
-          break;
-        case "recargas":
-          rowData = {
-            fecha: formatDateGTM6(item.fecha).split(",")[0],
-            hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
-            folio: item.folio || "",
-            numero: item.celular || "",
-            cantidad: typeof item.valor === "number"
-              ? parseFloat(item.valor.toFixed(2))
-              : 0,
-            compania: item.operadora || "",
-            clase: item.tipo ? item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1).toLowerCase() : "",
-            exitoso: item.exitoso ? "Exitosa" : "Fallida",
-            mensajeError: item.mensajeError || "",
-            vendedor: item.Tienda?.usuario?.nombres_apellidos || item.Tienda?.usuario?.nombre_tienda || item.Tienda?.usuario?.correo || "",
-          };
-          break;
-        default:
-          break;
-      }
+          promedioSemanal: typeof item.promedioSemanal === "number"
+            ? parseFloat(item.promedioSemanal.toFixed(2))
+            : 0,
+          vendedor: item.creador?.nombres_apellidos || item.creador?.correo || "",
+        };
+        break;
+      case "saldos":
+        rowData = {
+          tienda: item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || "",
+          fecha: formatDateGTM6(item.fecha).split(",")[0],
+          hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
+          valor: typeof item.valor === "number"
+            ? parseFloat(item.valor.toFixed(2))
+            : 0,
+          vendedor: item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || "",
+        };
+        break;
+      case "abonos":
+        rowData = {
+          fecha: formatDateGTM6(item.fecha).split(",")[0],
+          hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
+          valor: typeof item.valor === "number"
+            ? parseFloat(item.valor.toFixed(2))
+            : 0,
+          tipo: item.tipo === "Deposito"
+            ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
+            : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
+        };
+        break;
+      case "depósitos":
+        rowData = {
+          fecha: formatDateGTM6(item.fecha).split(",")[0],
+          hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
+          valor: typeof item.valor === "number"
+            ? parseFloat(item.valor.toFixed(2))
+            : 0,
+          tipo: item.tipo === "Deposito"
+            ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
+            : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
+        };
+        break;
+      case "recepción de saldo":
+        rowData = {
+          fecha: formatDateGTM6(item.fecha).split(",")[0],
+          hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
+          valor: typeof item.valor === "number"
+            ? parseFloat(item.valor.toFixed(2))
+            : 0,
+          tipo: item.tipo === "Deposito"
+            ? ` Depósito de ${item.vendedor?.nombres_apellidos || item.vendedor?.correo || ""}`
+            : ` ${item.tienda?.creador?.nombres_apellidos || item.tienda?.creador?.correo || ""} recibió de ${item.tienda?.usuario?.nombres_apellidos || item.tienda?.usuario?.nombre_tienda || ""}`,
+        };
+        break;
+      case "recargas":
+        // 👇 YA NO NECESITAMOS EL IF PORQUE YA ESTÁ FILTRADO
+        rowData = {
+          fecha: formatDateGTM6(item.fecha).split(",")[0],
+          hora: formatDateGTM6(item.fecha).split(",")[1]?.trim() || "",
+          folio: item.folio || "",
+          numero: item.celular || "",
+          cantidad: typeof item.valor === "number"
+            ? parseFloat(item.valor.toFixed(2))
+            : 0,
+          compania: item.operadora || "",
+          clase: item.tipo ? item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1).toLowerCase() : "",
+          exitoso: item.exitoso ? "Exitosa" : "Fallida",
+          mensajeError: item.mensajeError || "",
+          vendedor: item.Tienda?.usuario?.nombres_apellidos || item.Tienda?.usuario?.nombre_tienda || item.Tienda?.usuario?.correo || "",
+        };
+        break;
+      default:
+        break;
+    }
 
-      // Agregar la fila de datos
-      const rowIndex = startingRow + dataIndex;
-      worksheet.addRow(rowData);
+    // Agregar la fila de datos
+    const rowIndex = startingRow + dataIndex;
+    worksheet.addRow(rowData);
 
-      // Aplicar formato a las celdas si es necesario
-      const row = worksheet.getRow(rowIndex);
-      row.eachCell((cell) => {
-        cell.font = { color: { argb: "FF000000" } }; // Negro
-      });
+    // Aplicar formato a las celdas si es necesario
+    const row = worksheet.getRow(rowIndex);
+    row.eachCell((cell) => {
+      cell.font = { color: { argb: "FF000000" } }; // Negro
     });
+  });
 
-    // Ajustar el ancho de las columnas si es necesario
-    worksheet.columns.forEach((column) => {
-      column.width = column.width < 20 ? 20 : column.width;
-    });
+  // Ajustar el ancho de las columnas si es necesario
+  worksheet.columns.forEach((column) => {
+    column.width = column.width < 20 ? 20 : column.width;
+  });
 
-    // Guardar el workbook
-    const filename = `${title}.xlsx`;
-    const buffer = await workbook.xlsx.writeBuffer();
-    FileSaver.saveAs(new Blob([buffer]), filename);
-  };
+  // Guardar el workbook
+  const filename = `${title}.xlsx`;
+  const buffer = await workbook.xlsx.writeBuffer();
+  FileSaver.saveAs(new Blob([buffer]), filename);
+};
 
 
   const handleKeyDown = (e) => {
