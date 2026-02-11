@@ -17,6 +17,8 @@ import {
   FiCalendar, FiRefreshCw
 } from 'react-icons/fi';
 
+import { FiInfo } from "react-icons/fi";
+
 const IncrementosModal = ({ show, handleClose, proveedor }) => {
   const [activeTab, setActiveTab] = useState('alertas');
   const [loading, setLoading] = useState(false);
@@ -53,6 +55,32 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
 
   // ===== ZONA HORARIA =====
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const cargarPorcentajeRealMovistar = async () => {
+  if (proveedor !== 'movistar') {
+    setPorcentajeRealMovistar(null);
+    return;
+  }
+  
+  setCargandoPorcentaje(true);
+  try {
+    const params = new URLSearchParams({
+      startDate: fechaInicio,
+      endDate: fechaFin
+    });
+    
+    const response = await api.get(`/incrementos/movistar/porcentaje-real?${params}`);
+    setPorcentajeRealMovistar(response.data);
+    
+    console.log('📊 Métricas Reales Movistar:', response.data);
+  } catch (error) {
+    console.error('Error cargando métricas:', error);
+    setPorcentajeRealMovistar(null);
+  } finally {
+    setCargandoPorcentaje(false);
+  }
+};
+
 
   // ============= EFECTOS =============
   useEffect(() => {
@@ -94,29 +122,42 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     }
   }, [incrementos.length, selectedIncremento, activeTab]);
 
+  useEffect(() => {
+  if (activeTab === 'reportes' && fechaInicio && fechaFin && show) {
+    if (proveedor === 'movistar') {
+      cargarPorcentajeRealMovistar();
+    } else {
+      setPorcentajeRealMovistar(null);
+    }
+  }
+}, [fechaInicio, fechaFin, activeTab, show, proveedor]);
+
   // NUEVO: Función para resetear todos los estados
   const resetearEstados = () => {
-    setActiveTab('alertas');
-    setIncrementos([]);
-    setSelectedIncremento(null);
-    setNuevoDeposito({
-      monto: '',
-      usuarioId: '',
-      tipoDeposito: 'efectivo',
-      referencia: '',
-      notas: ''
-    });
-    setDepositosDisponibles([]);
-    setDepositosSeleccionados([]);
-    setNotasAsignacion('');
-    setIncrementoMaximo(0);
-    setAlertas([]);
-    setEstadisticasAlertas(null);
-    setReporte(null);
-    setReporteError(null);
-    setAlert({ show: false, message: '', variant: '' });
-  };
-
+  setActiveTab('alertas');
+  setIncrementos([]);
+  setSelectedIncremento(null);
+  setNuevoDeposito({
+    monto: '',
+    usuarioId: '',
+    tipoDeposito: 'efectivo',
+    referencia: '',
+    notas: ''
+  });
+  setDepositosDisponibles([]);
+  setDepositosSeleccionados([]);
+  setNotasAsignacion('');
+  setIncrementoMaximo(0);
+  setAlertas([]);
+  setEstadisticasAlertas(null);
+  setReporte(null);
+  setReporteError(null);
+  setAlert({ show: false, message: '', variant: '' });
+  
+  // 🔥 AGREGAR ESTOS:
+  setPorcentajeRealMovistar(null);
+  setCargandoPorcentaje(false);
+};
 const cargarDatos = async () => {
   setLoading(true);
   try {
@@ -163,14 +204,44 @@ const cargarDatos = async () => {
     }
   };
 
-  const cargarEstadisticasAlertas = async () => {
-    try {
-      const response = await api.get('/alertas/estadisticas');
-      setEstadisticasAlertas(response.data);
-    } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
-    }
-  };
+// ==================== CAMBIOS PARA front/src/components/common/Incrementosmodal.js ====================
+
+// ============= 1. AGREGAR ESTADOS (después de los estados existentes) =============
+
+const [porcentajeRealMovistar, setPorcentajeRealMovistar] = useState(null);
+const [cargandoPorcentaje, setCargandoPorcentaje] = useState(false);
+
+// ============= 2. CORREGIR FUNCIÓN cargarEstadisticasAlertas =============
+// REEMPLAZAR la función existente con esta:
+
+const cargarEstadisticasAlertas = async () => {
+  try {
+    const response = await api.get('/alertas/estadisticas');
+    
+    // 🔥 FILTRAR ESTADÍSTICAS POR PROVEEDOR ACTUAL
+    const estadisticasFiltradas = {
+      total: alertas.length, // Usar alertas ya filtradas
+      porTipo: {
+        incrementos: alertas.filter(a => a.tipo === 'incremento_pendiente').length,
+        depositos: alertas.filter(a => a.tipo === 'deposito_sin_asignar').length,
+        ajustes: alertas.filter(a => a.tipo === 'ajuste_pendiente').length,
+        inconsistencias: alertas.filter(a => a.tipo === 'inconsistencia_saldo').length
+      },
+      porUrgencia: {
+        alta: alertas.filter(a => a.urgencia === 'alta').length,
+        media: alertas.filter(a => a.urgencia === 'media').length,
+        baja: alertas.filter(a => a.urgencia === 'baja').length
+      },
+      porProveedor: {
+        [proveedor]: alertas.length
+      }
+    };
+    
+    setEstadisticasAlertas(estadisticasFiltradas);
+  } catch (error) {
+    console.error('Error al cargar estadísticas:', error);
+  }
+};
 
   const cargarIncrementos = async () => {
     try {
@@ -1556,6 +1627,588 @@ const cargarDatos = async () => {
                     <h6 className="mb-0 fw-bold"><FiBarChart2 /> Resumen Financiero</h6>
                   </Card.Header>
                   <Card.Body>
+
+                 <Row className="mb-3">
+  {/* Card 1: Consistencia */}
+  <Col md={3}>
+    <Card className={`text-center shadow-sm ${reporte.saldos.consistente ? 'stat-card-success' : 'stat-card-warning'}`}>
+      <Card.Body className="py-3">
+        <div className="fs-1">
+          {reporte.saldos.consistente ? <FiCheckCircle /> : <FiAlertTriangle />}
+        </div>
+        <h6 className="mb-0" style={{ color: 'white' }}>
+          {reporte.saldos.consistente ? 'Consistente' : 'Revisar'}
+        </h6>
+        {!reporte.saldos.consistente && (
+          <small style={{ color: 'rgba(255,255,255,0.8)' }}>
+            Dif: {formatearMoneda(reporte.saldos.diferencia)}
+          </small>
+        )}
+      </Card.Body>
+    </Card>
+  </Col>
+  
+  {/* Card 2: Saldo Actual */}
+  <Col md={3}>
+    <Card className="text-center shadow-sm stat-card-primary">
+      <Card.Body className="py-3">
+        <h4 className="mb-0" style={{ color: 'white' }}>
+          {formatearMoneda(reporte.saldos.finalReal)}
+        </h4>
+        <small style={{ opacity: 0.9, color: 'white' }}>Saldo Actual</small>
+      </Card.Body>
+    </Card>
+  </Col>
+  
+  {/* ⭐ Card 3 - CONDICIONAL: Movistar o General */}
+  {proveedor === 'movistar' && porcentajeRealMovistar ? (
+    // ✅ MOVISTAR: Mostrar Porcentaje del Periodo
+    <Col md={3}>
+      <Card className="text-center shadow-sm stat-card-success">
+        <Card.Body className="py-3">
+          <h4 className="mb-0 fw-bold" style={{ color: 'white' }}>
+            {porcentajeRealMovistar.porcentajePeriodoRedondeado}%
+          </h4>
+          <small style={{ opacity: 0.9, color: 'white' }}>% del Periodo</small>
+          <div style={{ 
+            fontSize: '0.75rem', 
+            opacity: 0.9, 
+            marginTop: '4px',
+            color: 'white'
+          }}>
+            +{formatearMoneda(porcentajeRealMovistar.totalComisiones)} ganados
+          </div>
+        </Card.Body>
+      </Card>
+    </Col>
+  ) : (
+    // ❌ GENERAL: Mostrar Ganancia tradicional
+    <Col md={3}>
+      <Card className={`text-center shadow-sm ${
+        reporte.totales.incrementos === 0 ? 'stat-card-info' : 
+        reporte.totales.gananciaReal >= 0 ? 'stat-card-success' : 'stat-card-warning'
+      }`}>
+        <Card.Body className="py-3">
+          {reporte.totales.incrementos === 0 ? (
+            <>
+              <h4 className="mb-0" style={{ color: 'white' }}>-</h4>
+              <small style={{ opacity: 0.9, color: 'white' }}>Sin incrementos</small>
+            </>
+          ) : (
+            <>
+              <h4 className="mb-0" style={{ color: 'white' }}>
+                {formatearMoneda(reporte.totales.gananciaReal)}
+              </h4>
+              <small style={{ opacity: 0.9, color: 'white' }}>
+                Ganancia ({reporte.totales.porcentajeGanancia.toFixed(2)}%)
+              </small>
+            </>
+          )}
+        </Card.Body>
+      </Card>
+    </Col>
+  )}
+  
+  {/* ⭐ Card 4 - CONDICIONAL: Movistar o General */}
+  {proveedor === 'movistar' && porcentajeRealMovistar ? (
+    // ✅ MOVISTAR: Mostrar Ganancia Potencial si Reinvierte
+    <Col md={3}>
+      <Card className="text-center shadow-sm stat-card-info">
+        <Card.Body className="py-3">
+          <h4 className="mb-0" style={{ color: 'white' }}>
+            +{formatearMoneda(porcentajeRealMovistar.gananciaPotencial)}
+          </h4>
+          <small style={{ opacity: 0.9, color: 'white' }}>Si Reinviertes</small>
+          <div style={{ 
+            fontSize: '0.75rem', 
+            opacity: 0.9, 
+            marginTop: '4px',
+            color: 'white'
+          }}>
+            @ {porcentajeRealMovistar.porcentajePeriodoRedondeado}%
+          </div>
+        </Card.Body>
+      </Card>
+    </Col>
+  ) : (
+    // ❌ GENERAL: Mostrar Recargas
+    <Col md={3}>
+      <Card className="text-center shadow-sm stat-card-info">
+        <Card.Body className="py-3">
+          <h4 className="mb-0" style={{ color: 'white' }}>
+            {reporte.contadores.recargas}
+          </h4>
+          <small style={{ opacity: 0.9, color: 'white' }}>Recargas</small>
+        </Card.Body>
+      </Card>
+    </Col>
+  )}
+</Row>
+
+
+{/* ============= ANÁLISIS COMPLETO MOVISTAR ============= */}
+{proveedor === 'movistar' && porcentajeRealMovistar && !porcentajeRealMovistar.error && (
+  <Card className="mb-3 shadow-sm border-success">
+    <Card.Header className="bg-success bg-opacity-10 border-success">
+      <h6 className="mb-0 fw-bold text-success d-flex align-items-center justify-content-between">
+        <span>
+          <FiTrendingUp className="me-2" /> 
+          Análisis Completo - Periodo: {porcentajeRealMovistar.periodo.inicio} a {porcentajeRealMovistar.periodo.fin}
+        </span>
+        {cargandoPorcentaje && <Spinner size="sm" />}
+      </h6>
+    </Card.Header>
+    <Card.Body>
+      {/* ===== FILA 1: CAPITAL Y SALDOS ===== */}
+      <Row className="g-3 mb-3">
+        <Col md={3}>
+          <div className="text-center p-3 bg-light rounded h-100">
+            <small className="text-muted d-block mb-2">💰 CAPITAL INICIAL</small>
+            <h5 className="mb-1 text-primary">
+              {formatearMoneda(porcentajeRealMovistar.capitalInicial)}
+            </h5>
+            <small className="text-muted d-block">
+              Saldo: {formatearMoneda(porcentajeRealMovistar.saldoInicial)}<br/>
+              Incrementos: +{formatearMoneda(porcentajeRealMovistar.totalIncrementos)}
+            </small>
+          </div>
+        </Col>
+        
+        <Col md={3}>
+          <div className="text-center p-3 bg-danger bg-opacity-10 rounded h-100">
+            <small className="text-muted d-block mb-2">📉 INVERTIDO</small>
+            <h5 className="mb-1 text-danger">
+              -{formatearMoneda(porcentajeRealMovistar.totalInvertido)}
+            </h5>
+            <small className="text-muted d-block">
+              {porcentajeRealMovistar.cantidadRecargas} recargas<br/>
+              Promedio: {formatearMoneda(porcentajeRealMovistar.promedioComision)}/recarga
+            </small>
+          </div>
+        </Col>
+        
+        <Col md={3}>
+          <div className="text-center p-3 bg-success bg-opacity-10 rounded h-100">
+            <small className="text-muted d-block mb-2">✅ COMISIONES</small>
+            <h5 className="mb-1 text-success">
+              +{formatearMoneda(porcentajeRealMovistar.totalComisionesReales)}
+            </h5>
+            <small className="text-muted d-block">
+              Registradas: {formatearMoneda(porcentajeRealMovistar.comisionesRegistradas)}<br/>
+              Calculadas: {formatearMoneda(porcentajeRealMovistar.comisionesCalculadas)}
+            </small>
+          </div>
+        </Col>
+        
+        <Col md={3}>
+          <div className="text-center p-3 bg-info bg-opacity-10 rounded h-100">
+            <small className="text-muted d-block mb-2">💎 SALDO FINAL</small>
+            <h5 className="mb-1 text-info">
+              {formatearMoneda(porcentajeRealMovistar.saldoFinal)}
+            </h5>
+            <small className="text-muted d-block">
+              Después de todas<br/>las operaciones
+            </small>
+          </div>
+        </Col>
+      </Row>
+      
+      {/* ===== FILA 2: MÉTRICAS PRINCIPALES (DESTACADAS) ===== */}
+      <Row className="g-3 mb-3">
+        <Col md={6}>
+          <div className="text-center p-4 bg-gradient rounded shadow-sm" 
+               style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+            <small className="d-block mb-2 text-white opacity-75">
+              📊 PORCENTAJE DEL PERIODO
+            </small>
+            <h2 className="mb-1 fw-bold text-white">
+              {porcentajeRealMovistar.porcentajePeriodoRedondeado}%
+            </h2>
+            <small className="text-white opacity-90 d-block">
+              Comisión promedio por recarga<br/>
+              <Badge bg="light" className="text-dark mt-1">
+                {porcentajeRealMovistar.porcentajePeriodo}% exacto
+              </Badge>
+            </small>
+          </div>
+        </Col>
+        
+        <Col md={6}>
+          <div className={`text-center p-4 rounded shadow-sm ${
+            parseFloat(porcentajeRealMovistar.roiReal) >= 0 
+              ? 'bg-gradient' 
+              : 'bg-gradient'
+          }`} style={{
+            background: parseFloat(porcentajeRealMovistar.roiReal) >= 0 
+              ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)'
+              : 'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)'
+          }}>
+            <small className="d-block mb-2 text-white opacity-75">
+              🎯 ROI REAL (con reinversión)
+            </small>
+            <h2 className="mb-1 fw-bold text-white">
+              {parseFloat(porcentajeRealMovistar.roiReal) >= 0 ? '+' : ''}
+              {porcentajeRealMovistar.roiRealRedondeado}%
+            </h2>
+            <small className="text-white opacity-90 d-block">
+              Ganancia/Pérdida neta:<br/>
+              <Badge bg="light" className={`mt-1 ${
+                parseFloat(porcentajeRealMovistar.gananciaRealNeta) >= 0 
+                  ? 'text-success' 
+                  : 'text-danger'
+              }`}>
+                {parseFloat(porcentajeRealMovistar.gananciaRealNeta) >= 0 ? '+' : ''}
+                {formatearMoneda(porcentajeRealMovistar.gananciaRealNeta)}
+              </Badge>
+            </small>
+          </div>
+        </Col>
+      </Row>
+      
+      {/* ===== EXPLICACIÓN CLARA ===== */}
+      <Alert variant="info" className="mb-3">
+        <Row>
+          <Col md={12}>
+            <h6 className="mb-2">
+              <FiInfo className="me-2" />
+              Diferencia entre Porcentaje del Periodo y ROI Real:
+            </h6>
+          </Col>
+          <Col md={6}>
+            <strong>📊 Porcentaje del Periodo ({porcentajeRealMovistar.porcentajePeriodoRedondeado}%)</strong>
+            <p className="mb-0 small">
+              Es el porcentaje promedio que ganas por cada recarga. 
+              Ejemplo: Si recargas $100, ganas ~${(parseFloat(porcentajeRealMovistar.porcentajePeriodoRedondeado)).toFixed(2)} en comisión.
+            </p>
+          </Col>
+          <Col md={6}>
+            <strong>🎯 ROI Real ({porcentajeRealMovistar.roiRealRedondeado}%)</strong>
+            <p className="mb-0 small">
+              Es tu ganancia/pérdida neta considerando TODO: saldo inicial, incrementos, 
+              y el efecto de reinvertir las comisiones. Muestra si realmente ganaste o perdiste dinero.
+            </p>
+          </Col>
+        </Row>
+      </Alert>
+      
+      {/* ===== DESGLOSE POR OPERADORA (DEL PERIODO) ===== */}
+      {porcentajeRealMovistar.detallesPorOperadora && 
+       porcentajeRealMovistar.detallesPorOperadora.length > 0 && (
+        <>
+          <hr className="my-3" />
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <small className="fw-bold text-muted">
+              📊 Desglose por Operadora
+            </small>
+            <Badge bg="primary">
+              Solo periodo: {porcentajeRealMovistar.periodo.inicio} - {porcentajeRealMovistar.periodo.fin}
+            </Badge>
+          </div>
+          <div className="table-responsive">
+            <Table size="sm" hover className="mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th className="small">Operadora</th>
+                  <th className="small text-center">Recargas</th>
+                  <th className="small text-end">Invertido</th>
+                  <th className="small text-end">Comisiones</th>
+                  <th className="small text-end">Promedio</th>
+                  <th className="small text-center">% Real</th>
+                </tr>
+              </thead>
+              <tbody>
+                {porcentajeRealMovistar.detallesPorOperadora.map((op, idx) => (
+                  <tr key={idx}>
+                    <td className="small">
+                      <Badge bg="primary">{op.operadora}</Badge>
+                    </td>
+                    <td className="small text-center">
+                      <Badge bg="secondary">{op.cantidad}</Badge>
+                      {op.cantidadSinComision > 0 && (
+                        <Badge bg="warning" className="ms-1" title="Comisiones calculadas">
+                          {op.cantidadSinComision} calc
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="small text-end text-danger">
+                      -{formatearMoneda(op.totalValor)}
+                    </td>
+                    <td className="small text-end text-success fw-bold">
+                      +{formatearMoneda(op.totalComision)}
+                    </td>
+                    <td className="small text-end">
+                      {formatearMoneda(op.promedioComision)}
+                    </td>
+                    <td className="small text-center">
+                      <Badge 
+                        bg={parseFloat(op.porcentaje) >= 7 ? 'success' : 
+                            parseFloat(op.porcentaje) >= 6 ? 'warning' : 'danger'}
+                        className="fw-bold"
+                      >
+                        {op.porcentaje}%
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+                {/* Fila de totales */}
+                <tr className="table-light fw-bold">
+                  <td className="small">TOTAL</td>
+                  <td className="small text-center">
+                    <Badge bg="dark">
+                      {porcentajeRealMovistar.cantidadRecargas}
+                    </Badge>
+                  </td>
+                  <td className="small text-end text-danger">
+                    -{formatearMoneda(porcentajeRealMovistar.totalInvertido)}
+                  </td>
+                  <td className="small text-end text-success">
+                    +{formatearMoneda(porcentajeRealMovistar.totalComisionesReales)}
+                  </td>
+                  <td className="small text-end">
+                    {formatearMoneda(porcentajeRealMovistar.promedioComision)}
+                  </td>
+                  <td className="small text-center">
+                    <Badge bg="success" className="fw-bold">
+                      {porcentajeRealMovistar.porcentajePeriodoRedondeado}%
+                    </Badge>
+                  </td>
+                </tr>
+              </tbody>
+            </Table>
+          </div>
+        </>
+      )}
+      
+      {/* ===== EXPLICACIÓN DETALLADA ===== */}
+      <div className="mt-3 p-3 bg-light rounded">
+        <small className="text-muted">
+          <strong>📋 Resumen:</strong>
+          <pre className="mb-0 mt-2" style={{ fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>
+{porcentajeRealMovistar?.explicacion}
+          </pre>
+        </small>
+      </div>
+    </Card.Body>
+  </Card>
+)}
+
+{/* Mensaje si no hay datos */}
+{proveedor === 'movistar' && porcentajeRealMovistar?.error && (
+  <Alert variant="warning" className="mb-3">
+    <FiAlertTriangle /> {porcentajeRealMovistar.error}
+  </Alert>
+)}
+
+{proveedor === 'movistar' && !porcentajeRealMovistar && !cargandoPorcentaje && reporte && (
+  <Alert variant="warning" className="mb-3">
+    <FiAlertTriangle /> No se pudo cargar el análisis. 
+    <Button 
+      size="sm" 
+      variant="outline-warning" 
+      className="ms-2"
+      onClick={cargarPorcentajeRealMovistar}
+    >
+      <FiRefreshCw /> Reintentar
+    </Button>
+  </Alert>
+)}
+
+
+
+
+{/* ============= ANÁLISIS  aterior DETALLADO MOVISTAR ============= */}
+{proveedor === 'movistar' && porcentajeRealMovistar && (
+  <Card className="mb-3 shadow-sm border-success">
+    <Card.Header className="bg-success bg-opacity-10 border-success">
+      <h6 className="mb-0 fw-bold text-success d-flex align-items-center">
+        <FiTrendingUp className="me-2" /> 
+        Análisis del Periodo: {reporte.periodo.fechaInicio.split(' ')[0]} - {reporte.periodo.fechaFin.split(' ')[0]}
+      </h6>
+    </Card.Header>
+    <Card.Body>
+      <Row className="g-3">
+        {/* Columna 1: Inversión del Periodo */}
+        <Col md={4}>
+          <div className="text-center p-3 bg-light rounded h-100">
+            <div className="mb-2">
+              <Badge bg="danger" className="mb-2" style={{ fontSize: '0.75rem' }}>
+                INVERSIÓN
+              </Badge>
+            </div>
+            <h4 className="text-danger mb-2 fw-bold">
+              -{formatearMoneda(porcentajeRealMovistar.totalInvertido)}
+            </h4>
+            <div className="small text-muted">
+              <div className="mb-1">
+                <strong>{porcentajeRealMovistar.cantidadRecargas}</strong> recargas realizadas
+              </div>
+              <div>
+                Promedio: <strong>{formatearMoneda(porcentajeRealMovistar.promedioComision)}</strong>/recarga
+              </div>
+            </div>
+          </div>
+        </Col>
+        
+        {/* Columna 2: Ganancia Real del Periodo */}
+        <Col md={4}>
+          <div className="text-center p-3 bg-success bg-opacity-10 rounded h-100">
+            <div className="mb-2">
+              <Badge bg="success" className="mb-2" style={{ fontSize: '0.75rem' }}>
+                GANANCIA REAL
+              </Badge>
+            </div>
+            <h4 className="text-success mb-2 fw-bold">
+              +{formatearMoneda(porcentajeRealMovistar.totalComisiones)}
+            </h4>
+            <div className="mb-2">
+              <Badge bg="success" className="fs-5 fw-bold px-3 py-2">
+                {porcentajeRealMovistar.porcentajePeriodoRedondeado}%
+              </Badge>
+            </div>
+            <small className="text-muted">
+              Porcentaje ganado en el periodo
+            </small>
+          </div>
+        </Col>
+        
+        {/* Columna 3: Potencial de Reinversión */}
+        <Col md={4}>
+          <div className="text-center p-3 bg-info bg-opacity-10 rounded h-100">
+            <div className="mb-2">
+              <Badge bg="info" className="mb-2" style={{ fontSize: '0.75rem' }}>
+                SI REINVIERTES
+              </Badge>
+            </div>
+            <h4 className="text-info mb-2 fw-bold">
+              +{formatearMoneda(porcentajeRealMovistar.gananciaPotencial)}
+            </h4>
+            <div className="small text-muted">
+              <div className="mb-1">
+                Total acumulado:
+              </div>
+              <div>
+                <strong className="text-success">
+                  {formatearMoneda(porcentajeRealMovistar.totalConReinversion)}
+                </strong>
+              </div>
+            </div>
+          </div>
+        </Col>
+      </Row>
+      
+      {/* Explicación Clara */}
+      <Alert variant="info" className="mt-3 mb-0">
+        <Row>
+          <Col md={12}>
+            <small>
+              <strong>💡 {porcentajeRealMovistar?.simulacionReinversion?.explicacion}</strong>
+            </small>
+          </Col>
+        </Row>
+      </Alert>
+      
+      {/* Detalles por Operadora */}
+      {porcentajeRealMovistar.detallesPorOperadora && 
+       porcentajeRealMovistar.detallesPorOperadora.length > 0 && (
+        <>
+          <hr className="my-3" />
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <small className="fw-bold text-muted">
+              📊 Desglose por Operadora
+            </small>
+            <Badge bg="secondary">
+              Periodo Seleccionado
+            </Badge>
+          </div>
+          <div className="table-responsive">
+            <Table size="sm" hover className="mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th className="small">Operadora</th>
+                  <th className="small text-center">Recargas</th>
+                  <th className="small text-end">Invertido</th>
+                  <th className="small text-end">Comisiones</th>
+                  <th className="small text-center">% Real</th>
+                </tr>
+              </thead>
+              <tbody>
+                {porcentajeRealMovistar.detallesPorOperadora.map((op, idx) => (
+                  <tr key={idx}>
+                    <td className="small">
+                      <Badge bg="primary">{op.operadora}</Badge>
+                    </td>
+                    <td className="small text-center">
+                      <Badge bg="secondary">{op.cantidad}</Badge>
+                    </td>
+                    <td className="small text-end">
+                      <span className="text-danger">
+                        -{formatearMoneda(op.totalValor)}
+                      </span>
+                    </td>
+                    <td className="small text-end">
+                      <span className="text-success fw-bold">
+                        +{formatearMoneda(op.totalComision)}
+                      </span>
+                    </td>
+                    <td className="small text-center">
+                      <Badge 
+                        bg={parseFloat(op.porcentaje) >= 7 ? 'success' : 
+                            parseFloat(op.porcentaje) >= 6 ? 'warning' : 'danger'}
+                        className="fw-bold"
+                      >
+                        {op.porcentaje}%
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+                {/* Fila de totales */}
+                <tr className="table-light fw-bold">
+                  <td className="small">TOTAL</td>
+                  <td className="small text-center">
+                    <Badge bg="dark">
+                      {porcentajeRealMovistar.cantidadRecargas}
+                    </Badge>
+                  </td>
+                  <td className="small text-end text-danger">
+                    -{formatearMoneda(porcentajeRealMovistar.totalInvertido)}
+                  </td>
+                  <td className="small text-end text-success">
+                    +{formatearMoneda(porcentajeRealMovistar.totalComisiones)}
+                  </td>
+                  <td className="small text-center">
+                    <Badge bg="success" className="fw-bold">
+                      {porcentajeRealMovistar.porcentajePeriodoRedondeado}%
+                    </Badge>
+                  </td>
+                </tr>
+              </tbody>
+            </Table>
+          </div>
+        </>
+      )}
+    </Card.Body>
+  </Card>
+)}
+
+// ============= 3. MENSAJE SI NO HAY DATOS (Mantener después del panel) =============
+
+{proveedor === 'movistar' && !porcentajeRealMovistar && !cargandoPorcentaje && reporte && (
+  <Alert variant="warning" className="mb-3">
+    <FiAlertTriangle /> No se pudo cargar el análisis del periodo. 
+    Puede ser que no haya recargas en el rango seleccionado.
+    <Button 
+      size="sm" 
+      variant="outline-warning" 
+      className="ms-2"
+      onClick={cargarPorcentajeRealMovistar}
+    >
+      <FiRefreshCw /> Reintentar
+    </Button>
+  </Alert>
+)}
+
+                    
+                    
                     <Row className="small">
                       <Col md={6}>
                         <div className="d-flex justify-content-between py-2 border-bottom">
@@ -1615,6 +2268,8 @@ const cargarDatos = async () => {
                             </span>
                           )}
                         </div>
+
+                        
                         {reporte.totales.incrementos === 0 && (
                           <Alert variant="info" className="mt-3 mb-0 py-2">
                             <small>
