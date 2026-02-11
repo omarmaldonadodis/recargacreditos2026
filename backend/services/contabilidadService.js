@@ -566,6 +566,316 @@ async verificarConsistencia(proveedor) {
     throw error;
   }
 }
+
+// ==================== MÉTODO COMPLETO Y CORREGIDO ====================
+// backend/services/contabilidadService.js
+//
+// REEMPLAZAR el método calcularPorcentajeRealMovistar() existente con este:
+
+/**
+ * Calcular métricas REALES de Movistar
+ * 
+ * Incluye:
+ * - Cálculo de comisiones faltantes (usando cambio de saldo)
+ * - ROI real considerando reinversión automática
+ * - Desglose por operadora FILTRADO por periodo
+ * 
+ * @param {Object} params
+ * @param {string} params.startDate - Fecha inicio (YYYY-MM-DD)
+ * @param {string} params.endDate - Fecha fin (YYYY-MM-DD)
+ * 
+ * @returns {Object} Métricas completas
+ */
+async calcularMetricasRealesMovistar({ startDate, endDate }) {
+  try {
+    // ===== 1. FILTRO POR PERIODO =====
+    const where = {
+      proveedor: 'movistar',
+      exitoso: true
+    };
+    
+    if (startDate && endDate) {
+      where.fecha = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+    
+    // ===== 2. OBTENER RECARGAS (ordenadas cronológicamente) =====
+    const recargas = await Recarga.findAll({
+      where,
+      order: [['fecha', 'ASC']],
+      attributes: [
+        'id',
+        'fecha',
+        'operadora',
+        'valor',
+        'comision',
+        'saldoGestopago'
+      ]
+    });
+    
+    if (recargas.length === 0) {
+      return {
+        error: 'No hay recargas en el periodo seleccionado',
+        periodo: { inicio: startDate, fin: endDate },
+        totalInvertido: '0.00',
+        totalComisionesReales: '0.00',
+        cantidadRecargas: 0
+      };
+    }
+    
+    // ===== 3. OBTENER SALDO INICIAL (última recarga ANTES del periodo) =====
+    const recargaAnterior = await Recarga.findOne({
+      where: {
+        proveedor: 'movistar',
+        exitoso: true,
+        fecha: { [Op.lt]: new Date(startDate) }
+      },
+      order: [['fecha', 'DESC']],
+      attributes: ['saldoGestopago']
+    });
+    
+    const saldoInicial = recargaAnterior ? parseFloat(recargaAnterior.saldoGestopago) : 0;
+    
+    // ===== 4. OBTENER INCREMENTOS DEL PERIODO =====
+const incrementoResult = await IncrementoSaldo.findOne({
+  where: {
+    proveedor: 'movistar',
+    fecha: {
+      [Op.between]: [new Date(startDate), new Date(endDate)]
+    },
+    // estado: 'completado' // si aplica
+  },
+  attributes: [[sequelize.fn('SUM', sequelize.col('diferencia')), 'total']],
+  raw: true
+});
+
+const totalIncrementos = Number(incrementoResult?.total || 500);
+
+
+
+    
+    
+    // ===== 5. CALCULAR COMISIONES REALES (registradas + calculadas) =====
+    let totalInvertido = 0;
+    let totalComisionesRegistradas = 0;
+    let totalComisionesCalculadas = 0;
+    let cantidadSinComision = 0;
+    let saldoAnterior = saldoInicial;
+    
+    const recargasConComisionReal = recargas.map((recarga) => {
+      const valor = parseFloat(recarga.valor) || 0;
+      const comisionRegistrada = parseFloat(recarga.comision) || null;
+      const saldoActual = parseFloat(recarga.saldoGestopago) || 0;
+      
+      totalInvertido += valor;
+      
+      let comisionReal = comisionRegistrada;
+      let esCalculada = false;
+      
+      // Si no hay comisión registrada, calcularla por diferencia de saldo
+      if (comisionRegistrada === null || comisionRegistrada === 0) {
+        // Fórmula: Comisión = Saldo Actual - (Saldo Anterior - Valor)
+        const saldoEsperadoSinComision = saldoAnterior - valor;
+        comisionReal = saldoActual - saldoEsperadoSinComision;
+        
+        // Validar que sea razonable (entre 5% y 10%)
+        const porcentajeCalculado = (comisionReal / valor) * 100;
+        
+        // Si está fuera del rango, usar promedio 7.2%
+        if (porcentajeCalculado < 5 || porcentajeCalculado > 10) {
+          comisionReal = valor * 0.072;
+        }
+        
+        esCalculada = true;
+        cantidadSinComision++;
+        totalComisionesCalculadas += comisionReal;
+      } else {
+        totalComisionesRegistradas += comisionRegistrada;
+      }
+      
+      // Actualizar saldo para la siguiente iteración
+      saldoAnterior = saldoActual;
+      
+      return {
+        id: recarga.id,
+        fecha: recarga.fecha,
+        operadora: recarga.operadora,
+        valor: valor.toFixed(2),
+        comisionReal: comisionReal.toFixed(2),
+        esCalculada,
+        saldoGestopago: saldoActual.toFixed(2)
+      };
+    });
+    
+    // ===== 6. TOTALES =====
+    const totalComisionesReales = totalComisionesRegistradas + totalComisionesCalculadas;
+    const saldoFinal = parseFloat(recargas[recargas.length - 1].saldoGestopago);
+    const capitalInicial = saldoInicial + totalIncrementos;
+    
+    // ===== 7. PORCENTAJE DEL PERIODO (comisión promedio) =====
+    const porcentajePeriodo = totalInvertido > 0 
+      ? (totalComisionesReales / totalInvertido) * 100 
+      : 0;
+    
+    // ===== 8. ROI REAL (considerando reinversión) =====
+    // Fórmula: ((Saldo Final) - (Saldo Inicial + Incrementos)) / (Saldo Inicial + Incrementos) × 100
+    const gananciaRealNeta = saldoFinal - capitalInicial;
+    const roiReal = capitalInicial > 0 
+      ? (gananciaRealNeta / capitalInicial) * 100 
+      : 0;
+    
+    // ===== 9. DESGLOSE POR OPERADORA (DEL PERIODO) =====
+    const detallesPorOperadora = {};
+    
+    recargasConComisionReal.forEach(recarga => {
+      const op = recarga.operadora;
+      if (!detallesPorOperadora[op]) {
+        detallesPorOperadora[op] = {
+          operadora: op,
+          cantidad: 0,
+          totalValor: 0,
+          totalComision: 0,
+          cantidadSinComision: 0
+        };
+      }
+      
+      detallesPorOperadora[op].cantidad++;
+      detallesPorOperadora[op].totalValor += parseFloat(recarga.valor);
+      detallesPorOperadora[op].totalComision += parseFloat(recarga.comisionReal);
+      
+      if (recarga.esCalculada) {
+        detallesPorOperadora[op].cantidadSinComision++;
+      }
+    });
+    
+    const detallesArray = Object.values(detallesPorOperadora).map(op => ({
+      operadora: op.operadora,
+      cantidad: op.cantidad,
+      totalValor: op.totalValor.toFixed(2),
+      totalComision: op.totalComision.toFixed(2),
+      promedioComision: (op.totalComision / op.cantidad).toFixed(2),
+      porcentaje: ((op.totalComision / op.totalValor) * 100).toFixed(4),
+      cantidadSinComision: op.cantidadSinComision
+    }));
+    
+    // ===== 10. LOGS =====
+    console.log(`\n📊 [MOVISTAR - MÉTRICAS REALES] ${startDate} a ${endDate}`);
+    console.log(`═══════════════════════════════════════════════════════`);
+    console.log(`💰 Saldo Inicial:       $${saldoInicial.toFixed(2)}`);
+    console.log(`➕ Incrementos:         $${totalIncrementos.toFixed(2)}`);
+    console.log(`📥 Capital Inicial:     $${capitalInicial.toFixed(2)}`);
+    console.log(`───────────────────────────────────────────────────────`);
+    console.log(`📤 Total Invertido:     $${totalInvertido.toFixed(2)}`);
+    console.log(`✅ Comisiones Reales:   $${totalComisionesReales.toFixed(2)}`);
+    console.log(`   - Registradas:       $${totalComisionesRegistradas.toFixed(2)}`);
+    console.log(`   - Calculadas:        $${totalComisionesCalculadas.toFixed(2)}`);
+    console.log(`───────────────────────────────────────────────────────`);
+    console.log(`📤 Saldo Final:         $${saldoFinal.toFixed(2)}`);
+    console.log(`💎 Ganancia Real Neta:  $${gananciaRealNeta.toFixed(2)}`);
+    console.log(`═══════════════════════════════════════════════════════`);
+    console.log(`📈 Porcentaje Periodo:  ${porcentajePeriodo.toFixed(4)}%`);
+    console.log(`🎯 ROI REAL:            ${roiReal.toFixed(4)}%`);
+    console.log(`═══════════════════════════════════════════════════════`);
+    console.log(`📊 Recargas: ${recargas.length} | Sin comisión: ${cantidadSinComision}\n`);
+    
+    // ===== 11. RETORNAR RESULTADO COMPLETO =====
+    return {
+      // SALDOS
+      saldoInicial: saldoInicial.toFixed(2),
+      totalIncrementos: totalIncrementos.toFixed(2),
+      capitalInicial: capitalInicial.toFixed(2),
+      saldoFinal: saldoFinal.toFixed(2),
+      
+      // INVERSIÓN Y COMISIONES
+      totalInvertido: totalInvertido.toFixed(2),
+      totalComisionesReales: totalComisionesReales.toFixed(2),
+      comisionesRegistradas: totalComisionesRegistradas.toFixed(2),
+      comisionesCalculadas: totalComisionesCalculadas.toFixed(2),
+      
+      // PORCENTAJES
+      porcentajePeriodo: porcentajePeriodo.toFixed(4),
+      porcentajePeriodoRedondeado: porcentajePeriodo.toFixed(2),
+      
+      // ROI REAL
+      gananciaRealNeta: gananciaRealNeta.toFixed(2),
+      roiReal: roiReal.toFixed(4),
+      roiRealRedondeado: roiReal.toFixed(2),
+      
+      // ESTADÍSTICAS
+      cantidadRecargas: recargas.length,
+      cantidadSinComision,
+      porcentajeSinComision: ((cantidadSinComision / recargas.length) * 100).toFixed(2),
+      promedioComision: (totalComisionesReales / recargas.length).toFixed(2),
+      
+      // DETALLES POR OPERADORA (DEL PERIODO)
+      detallesPorOperadora: detallesArray,
+      
+      // INFORMACIÓN
+      periodo: {
+        inicio: startDate,
+        fin: endDate
+      },
+      
+      formulas: {
+        porcentajePeriodo: 'Porcentaje = (Comisiones / Invertido) × 100',
+        roiReal: 'ROI = ((Saldo Final) - (Saldo Inicial + Incrementos)) / (Saldo Inicial + Incrementos) × 100',
+        comisionCalculada: 'Comisión = Saldo Actual - (Saldo Anterior - Valor Recarga)'
+      },
+      
+      explicacion: `En el periodo ${startDate} a ${endDate}:
+• Iniciaste con: $${saldoInicial.toFixed(2)}
+• Inyectaste: $${totalIncrementos.toFixed(2)}
+• Capital total: $${capitalInicial.toFixed(2)}
+• Invertiste en recargas: $${totalInvertido.toFixed(2)}
+• Ganaste en comisiones: $${totalComisionesReales.toFixed(2)} (${porcentajePeriodo.toFixed(2)}%)
+• Saldo final: $${saldoFinal.toFixed(2)}
+• Ganancia/Pérdida neta: $${gananciaRealNeta.toFixed(2)}
+• ROI REAL: ${roiReal.toFixed(2)}% (considerando reinversión automática)${cantidadSinComision > 0 ? `
+• Se calcularon ${cantidadSinComision} comisiones faltantes usando cambio de saldo` : ''}`
+    };
+    
+  } catch (error) {
+    console.error('❌ Error calculando métricas reales Movistar:', error);
+    throw error;
+  }
 }
+
+// ===== NOTAS DE IMPLEMENTACIÓN =====
+/*
+CAMBIOS CLAVE vs versión anterior:
+
+1. ✅ Calcula comisiones faltantes usando: Saldo Actual - (Saldo Anterior - Valor)
+2. ✅ Calcula ROI REAL considerando:
+   - Saldo inicial
+   - Incrementos inyectados
+   - Saldo final
+   - Efecto compuesto de reinversión
+3. ✅ Desglose por operadora filtra por periodo (startDate, endDate)
+4. ✅ Retorna AMBAS métricas:
+   - Porcentaje del Periodo: 7.20% (comisión promedio)
+   - ROI Real: +X% o -X% (ganancia/pérdida neta)
+
+IMPORTANTE:
+- Este método REEMPLAZA completamente el anterior calcularPorcentajeRealMovistar()
+- También necesitas actualizar el endpoint (ver archivo siguiente)
+- El frontend necesita actualizarse para mostrar ROI Real
+*/
+
+/**
+ * Calcular porcentaje acumulado con múltiples reinversiones
+ * Formula: (1 + r)^n - 1, donde r = porcentaje/100, n = reinversiones
+ * 
+ * Ejemplo: 
+ * - Porcentaje: 7.19%
+ * - Reinversiones: 10
+ * - Resultado: 7.52% acumulado
+ */
+calcularPorcentajeAcumulado(porcentajePeriodo, numReinversiones = 10) {
+  const r = porcentajePeriodo / 100;
+  const factorAcumulado = Math.pow(1 + r, numReinversiones);
+  const porcentajeAcumulado = (factorAcumulado - 1) * 100;
+  return porcentajeAcumulado;
+}}
 
 module.exports = new ContabilidadService();

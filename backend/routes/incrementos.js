@@ -807,4 +807,209 @@ router.get('/historial-eventos/:proveedor', authenticateToken, soloAdmin, async 
   }
 });
 
+// AGREGAR ESTAS RUTAS en backend/routes/incrementos.js
+// después de las rutas existentes de reportes
+
+// ============= ANÁLISIS DE MOVISTAR =============
+
+/**
+ * GET /api/incrementos/movistar/porcentaje-real
+ * Obtener porcentaje real de ganancia de Movistar
+ * 
+ * Query params:
+ * - startDate: Fecha inicio (opcional)
+ * - endDate: Fecha fin (opcional)
+ * 
+ * Respuesta:
+ * {
+ *   totalInvertido: "10000.00",
+ *   totalComisiones: "720.45",
+ *   porcentajeReal: "7.2045",
+ *   cantidadRecargas: 150,
+ *   promedioComision: "4.80",
+ *   detallesPorOperadora: [...]
+ * }
+ */
+router.get('/movistar/porcentaje-real', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const resultado = await contabilidadService.calcularMetricasRealesMovistar({
+      startDate,
+      endDate
+    });
+    
+    res.json(resultado);
+  } catch (error) {
+    console.error('Error calculando porcentaje real:', error);
+    res.status(500).json({ 
+      error: error.message,
+      detalle: 'Error al calcular el porcentaje real de ganancia'
+    });
+  }
+});
+
+/**
+ * GET /api/incrementos/movistar/analisis-comisiones
+ * Análisis detallado de comisiones de Movistar
+ * 
+ * Query params:
+ * - startDate: Fecha inicio (opcional)
+ * - endDate: Fecha fin (opcional)
+ * 
+ * Respuesta:
+ * Análisis completo con gráficos de comisiones por operadora y periodo
+ */
+router.get('/movistar/analisis-comisiones', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const where = {
+      proveedor: 'movistar',
+      exitoso: true,
+      comision: { [Op.ne]: null }
+    };
+    
+    if (startDate && endDate) {
+      where.fecha = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+    
+    // Comisiones por operadora
+    const comisionesPorOperadora = await Recarga.findAll({
+      where,
+      attributes: [
+        'operadora',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'cantidad'],
+        [sequelize.fn('SUM', sequelize.col('comision')), 'totalComision'],
+        [sequelize.fn('AVG', sequelize.col('comision')), 'promedioComision'],
+        [sequelize.fn('MIN', sequelize.col('comision')), 'minimoComision'],
+        [sequelize.fn('MAX', sequelize.col('comision')), 'maximoComision']
+      ],
+      group: ['operadora'],
+      order: [[sequelize.fn('SUM', sequelize.col('comision')), 'DESC']],
+      raw: true
+    });
+    
+    // Comisiones por día (últimos 30 días)
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hace30Dias.getDate() - 30);
+    
+    const comisionesPorDia = await Recarga.findAll({
+      where: {
+        ...where,
+        fecha: { [Op.gte]: hace30Dias }
+      },
+      attributes: [
+        [sequelize.fn('DATE', sequelize.col('fecha')), 'dia'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'cantidad'],
+        [sequelize.fn('SUM', sequelize.col('comision')), 'totalComision']
+      ],
+      group: [sequelize.fn('DATE', sequelize.col('fecha'))],
+      order: [[sequelize.fn('DATE', sequelize.col('fecha')), 'ASC']],
+      raw: true
+    });
+    
+    // Estadísticas generales
+    const totalComisiones = await Recarga.sum('comision', where) || 0;
+    const cantidadRecargas = await Recarga.count(where);
+    const promedioComision = cantidadRecargas > 0 ? totalComisiones / cantidadRecargas : 0;
+    
+    res.json({
+      resumen: {
+        totalComisiones: totalComisiones.toFixed(2),
+        cantidadRecargas,
+        promedioComision: promedioComision.toFixed(2)
+      },
+      porOperadora: comisionesPorOperadora.map(op => ({
+        operadora: op.operadora,
+        cantidad: parseInt(op.cantidad),
+        total: parseFloat(op.totalComision || 0).toFixed(2),
+        promedio: parseFloat(op.promedioComision || 0).toFixed(2),
+        minimo: parseFloat(op.minimoComision || 0).toFixed(2),
+        maximo: parseFloat(op.maximoComision || 0).toFixed(2)
+      })),
+      porDia: comisionesPorDia.map(dia => ({
+        fecha: dia.dia,
+        cantidad: parseInt(dia.cantidad),
+        total: parseFloat(dia.totalComision || 0).toFixed(2)
+      })),
+      periodo: {
+        inicio: startDate || 'inicio',
+        fin: endDate || 'ahora'
+      }
+    });
+  } catch (error) {
+    console.error('Error en análisis de comisiones:', error);
+    res.status(500).json({ 
+      error: error.message,
+      detalle: 'Error al analizar comisiones'
+    });
+  }
+});
+
+/**
+ * GET /api/incrementos/comparacion-proveedores
+ * Comparación de rendimiento entre General y Movistar
+ * 
+ * Query params:
+ * - startDate: Fecha inicio (opcional)
+ * - endDate: Fecha fin (opcional)
+ */
+router.get('/comparacion-proveedores', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Obtener métricas de ambos proveedores
+    const [gananciaGeneral, porcentajeMovistar] = await Promise.all([
+      contabilidadService.calcularGanancias({
+        proveedor: 'general',
+        startDate,
+        endDate
+      }),
+      contabilidadService.calcularPorcentajeRealMovistar({
+        startDate,
+        endDate
+      })
+    ]);
+    
+    res.json({
+      general: {
+        proveedor: 'general',
+        modelo: 'Depósito + 2% instantáneo',
+        totalDepositado: gananciaGeneral.totalDepositado,
+        gananciaReal: gananciaGeneral.gananciaReal,
+        porcentajeGanancia: gananciaGeneral.porcentajeGanancia
+      },
+      movistar: {
+        proveedor: 'movistar',
+        modelo: 'Comisiones variables por recarga',
+        totalInvertido: porcentajeMovistar.totalInvertido,
+        totalComisiones: porcentajeMovistar.totalComisiones,
+        porcentajeReal: porcentajeMovistar.porcentajeReal,
+        cantidadRecargas: porcentajeMovistar.cantidadRecargas
+      },
+      comparacion: {
+        mejorProveedor: parseFloat(gananciaGeneral.porcentajeGanancia) > parseFloat(porcentajeMovistar.porcentajeReal)
+          ? 'general'
+          : 'movistar',
+        diferenciaPorcentual: Math.abs(
+          parseFloat(gananciaGeneral.porcentajeGanancia) - parseFloat(porcentajeMovistar.porcentajeReal)
+        ).toFixed(2)
+      },
+      periodo: {
+        inicio: startDate || 'inicio',
+        fin: endDate || 'ahora'
+      }
+    });
+  } catch (error) {
+    console.error('Error comparando proveedores:', error);
+    res.status(500).json({ 
+      error: error.message,
+      detalle: 'Error al comparar proveedores'
+    });
+  }
+});
+
 module.exports = router;
