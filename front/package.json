@@ -31,6 +31,7 @@
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.26.2",
     "react-scripts": "5.0.1",
+    "react-select": "^5.10.2",
     "timers-browserify": "^2.0.12",
     "tippy.js": "^6.3.7",
     "web-vitals": "^2.1.4",

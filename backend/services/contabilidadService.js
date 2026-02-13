@@ -354,6 +354,8 @@ class ContabilidadService {
         saldoActual: saldoActual.toFixed(2),
         totalComisiones: totalComisiones.toFixed(2),
         gananciaReal: gananciaReal.toFixed(2),
+          capitalDisponible: capitalDisponible.toFixed(2),
+
         porcentajeGanancia: `${porcentajeGanancia}%`,
         formula,
         fechaInicioPeriodo: fechaInicioPeriodo.toISOString().split('T')[0],
@@ -638,19 +640,20 @@ async calcularMetricasRealesMovistar({ startDate, endDate }) {
     const saldoInicial = recargaAnterior ? parseFloat(recargaAnterior.saldoGestopago) : 0;
     
     // ===== 4. OBTENER INCREMENTOS DEL PERIODO =====
-const incrementoResult = await IncrementoSaldo.findOne({
+
+
+// Usar .sum() directamente
+const totalIncrementos = await IncrementoSaldo.sum('diferencia', {
   where: {
     proveedor: 'movistar',
+    estado: { [Op.ne]: 'ignorado' }, // ✅ Todos excepto ignorados
     fecha: {
       [Op.between]: [new Date(startDate), new Date(endDate)]
-    },
-    // estado: 'completado' // si aplica
-  },
-  attributes: [[sequelize.fn('SUM', sequelize.col('diferencia')), 'total']],
-  raw: true
-});
+    }
+  }
+}) || 0;
 
-const totalIncrementos = Number(incrementoResult?.total || 500);
+console.log(`[DEBUG] Incrementos reales: $${totalIncrementos.toFixed(2)}`);
 
 
 
@@ -720,11 +723,13 @@ const totalIncrementos = Number(incrementoResult?.total || 500);
     
     // ===== 8. ROI REAL (considerando reinversión) =====
     // Fórmula: ((Saldo Final) - (Saldo Inicial + Incrementos)) / (Saldo Inicial + Incrementos) × 100
-    const gananciaRealNeta = saldoFinal - capitalInicial;
-    const roiReal = capitalInicial > 0 
-      ? (gananciaRealNeta / capitalInicial) * 100 
-      : 0;
-    
+
+
+      const gananciaReal = totalComisionesReales;
+const capitalDisponible = saldoFinal; // No es pérdida
+const roiReal = capitalInicial > 0 
+  ? (gananciaReal / capitalInicial) * 100 
+  : 0;
     // ===== 9. DESGLOSE POR OPERADORA (DEL PERIODO) =====
     const detallesPorOperadora = {};
     
@@ -772,7 +777,7 @@ const totalIncrementos = Number(incrementoResult?.total || 500);
     console.log(`   - Calculadas:        $${totalComisionesCalculadas.toFixed(2)}`);
     console.log(`───────────────────────────────────────────────────────`);
     console.log(`📤 Saldo Final:         $${saldoFinal.toFixed(2)}`);
-    console.log(`💎 Ganancia Real Neta:  $${gananciaRealNeta.toFixed(2)}`);
+    console.log(`💎 Ganancia Real Neta:  $${gananciaReal.toFixed(2)}`);
     console.log(`═══════════════════════════════════════════════════════`);
     console.log(`📈 Porcentaje Periodo:  ${porcentajePeriodo.toFixed(4)}%`);
     console.log(`🎯 ROI REAL:            ${roiReal.toFixed(4)}%`);
@@ -798,7 +803,7 @@ const totalIncrementos = Number(incrementoResult?.total || 500);
       porcentajePeriodoRedondeado: porcentajePeriodo.toFixed(2),
       
       // ROI REAL
-      gananciaRealNeta: gananciaRealNeta.toFixed(2),
+      gananciaRealNeta: gananciaReal.toFixed(2),
       roiReal: roiReal.toFixed(4),
       roiRealRedondeado: roiReal.toFixed(2),
       
@@ -830,7 +835,7 @@ const totalIncrementos = Number(incrementoResult?.total || 500);
 • Invertiste en recargas: $${totalInvertido.toFixed(2)}
 • Ganaste en comisiones: $${totalComisionesReales.toFixed(2)} (${porcentajePeriodo.toFixed(2)}%)
 • Saldo final: $${saldoFinal.toFixed(2)}
-• Ganancia/Pérdida neta: $${gananciaRealNeta.toFixed(2)}
+• Ganancia/Pérdida neta: $${gananciaReal.toFixed(2)}
 • ROI REAL: ${roiReal.toFixed(2)}% (considerando reinversión automática)${cantidadSinComision > 0 ? `
 • Se calcularon ${cantidadSinComision} comisiones faltantes usando cambio de saldo` : ''}`
     };
@@ -876,6 +881,359 @@ calcularPorcentajeAcumulado(porcentajePeriodo, numReinversiones = 10) {
   const factorAcumulado = Math.pow(1 + r, numReinversiones);
   const porcentajeAcumulado = (factorAcumulado - 1) * 100;
   return porcentajeAcumulado;
-}}
+}
+/**
+ * ============================================================================
+ * MÉTODOS PARA CALCULAR RENDIMIENTO EFECTIVO CON REINVERSIÓN CONTINUA
+ * ============================================================================
+ * 
+ * Agregar estos métodos a contabilidadService.js (antes del cierre de clase)
+ */
+
+/**
+ * Calcular rendimiento efectivo con reinversión continua (SIMULACIÓN)
+ * 
+ * Simula el proceso completo de recargas hasta agotar el capital,
+ * considerando que las comisiones se reinvierten automáticamente.
+ * 
+ * Ejemplo:
+ * - Capital inicial: $10,000
+ * - Recargas promedio: $60
+ * - Comisión: 7.2%
+ * - Las comisiones se reinvierten automáticamente
+ * 
+ * ¿Cuánto ganas REALMENTE hasta agotar el capital?
+ * 
+ * @param {Object} params
+ * @param {number} params.capitalInicial - Inversión inicial
+ * @param {number} params.promedioRecarga - Valor promedio de recarga (default: 60)
+ * @param {number} params.porcentajeComision - % de comisión (default: 7.2)
+ * @param {number} params.minimoOperable - Saldo mínimo para seguir operando (default: 20)
+ * 
+ * @returns {Object} Análisis completo del rendimiento con reinversión
+ */
+calcularRendimientoConReinversion({
+  capitalInicial,
+  promedioRecarga = 60,
+  porcentajeComision = 7.2,
+  minimoOperable = 20
+}) {
+  try {
+    let saldoActual = capitalInicial;
+    let totalComisionesGanadas = 0;
+    let numeroRecargas = 0;
+    let recargasDetalle = [];
+    
+    console.log(`\n🔄 SIMULACIÓN DE REINVERSIÓN CONTINUA`);
+    console.log(`═══════════════════════════════════════════════════════`);
+    console.log(`💰 Capital inicial: $${capitalInicial.toFixed(2)}`);
+    console.log(`📱 Promedio recarga: $${promedioRecarga.toFixed(2)}`);
+    console.log(`✅ Comisión: ${porcentajeComision}%`);
+    console.log(`🎯 Mínimo operable: $${minimoOperable.toFixed(2)}`);
+    console.log(`═══════════════════════════════════════════════════════\n`);
+    
+    // Simular recargas hasta agotar capital
+    while (saldoActual >= minimoOperable && saldoActual >= promedioRecarga) {
+      numeroRecargas++;
+      
+      // Calcular comisión de esta recarga
+      const comision = promedioRecarga * (porcentajeComision / 100);
+      
+      // Actualizar saldo: se descuenta la recarga pero se suma la comisión
+      saldoActual = saldoActual - promedioRecarga + comision;
+      totalComisionesGanadas += comision;
+      
+      // Guardar detalle cada 50 recargas
+      if (numeroRecargas % 50 === 0) {
+        recargasDetalle.push({
+          recarga: numeroRecargas,
+          saldo: saldoActual.toFixed(2),
+          comisionesAcumuladas: totalComisionesGanadas.toFixed(2),
+          rendimiento: ((totalComisionesGanadas / capitalInicial) * 100).toFixed(2) + '%'
+        });
+      }
+    }
+    
+    // Calcular métricas finales
+    const totalInvertidoEnRecargas = numeroRecargas * promedioRecarga;
+    const rendimientoEfectivo = (totalComisionesGanadas / capitalInicial) * 100;
+    const capitalFinalDisponible = saldoActual;
+    
+    // Rendimiento anualizado (estimando 1 recarga por día)
+    const diasEstimados = numeroRecargas;
+    const rendimientoAnualizado = rendimientoEfectivo * (365 / diasEstimados);
+    
+    console.log(`✅ RESULTADOS:`);
+    console.log(`   Recargas realizadas:     ${numeroRecargas}`);
+    console.log(`   Total invertido:         $${totalInvertidoEnRecargas.toFixed(2)}`);
+    console.log(`   Comisiones ganadas:      $${totalComisionesGanadas.toFixed(2)}`);
+    console.log(`   Saldo final:             $${capitalFinalDisponible.toFixed(2)}`);
+    console.log(`   Rendimiento efectivo:    ${rendimientoEfectivo.toFixed(2)}%`);
+    console.log(`   Rendimiento anualizado:  ${rendimientoAnualizado.toFixed(2)}%\n`);
+    
+    return {
+      // Capital
+      capitalInicial: capitalInicial.toFixed(2),
+      capitalFinalDisponible: capitalFinalDisponible.toFixed(2),
+      
+      // Operaciones
+      numeroRecargas,
+      promedioRecarga: promedioRecarga.toFixed(2),
+      totalInvertidoEnRecargas: totalInvertidoEnRecargas.toFixed(2),
+      
+      // Ganancias
+      totalComisionesGanadas: totalComisionesGanadas.toFixed(2),
+      porcentajeComisionSimple: porcentajeComision.toFixed(2),
+      
+      // Rendimiento
+      rendimientoEfectivo: rendimientoEfectivo.toFixed(4),
+      rendimientoEfectivoRedondeado: rendimientoEfectivo.toFixed(2),
+      rendimientoAnualizado: rendimientoAnualizado.toFixed(2),
+      
+      // Comparación
+      diferenciaVsSimple: (rendimientoEfectivo - porcentajeComision).toFixed(2),
+      multiplicadorGanancia: (rendimientoEfectivo / porcentajeComision).toFixed(2),
+      
+      // Estadísticas
+      promedioComisionPorRecarga: (totalComisionesGanadas / numeroRecargas).toFixed(2),
+      diasEstimados,
+      recargasPorDia: (numeroRecargas / diasEstimados).toFixed(2),
+      
+      // Detalle periódico
+      recargasDetalle,
+      
+      // Fórmulas
+      formulas: {
+        rendimientoEfectivo: 'Rendimiento = (Σ Comisiones / Capital Inicial) × 100',
+        proceso: 'Saldo(n+1) = Saldo(n) - Recarga + (Recarga × Comisión%)',
+        condicionParada: `Saldo >= ${minimoOperable} y Saldo >= ${promedioRecarga}`
+      },
+      
+      explicacion: `
+═══════════════════════════════════════════════════════════════════
+🎯 RENDIMIENTO EFECTIVO CON REINVERSIÓN CONTINUA
+═══════════════════════════════════════════════════════════════════
+
+💰 INVERSIÓN:
+   • Capital inicial:        $${capitalInicial.toFixed(2)}
+   
+📤 OPERACIONES:
+   • Recargas realizadas:    ${numeroRecargas}
+   • Promedio por recarga:   $${promedioRecarga.toFixed(2)}
+   • Total invertido:        $${totalInvertidoEnRecargas.toFixed(2)}
+   
+✅ GANANCIAS:
+   • Comisiones ganadas:     $${totalComisionesGanadas.toFixed(2)}
+   • Comisión simple:        ${porcentajeComision.toFixed(2)}%
+   • Rendimiento EFECTIVO:   ${rendimientoEfectivo.toFixed(2)}%
+   
+💎 RESULTADO:
+   • Saldo final disponible: $${capitalFinalDisponible.toFixed(2)}
+   • Ganancia total:         $${totalComisionesGanadas.toFixed(2)}
+   • Multiplicador:          ${(rendimientoEfectivo / porcentajeComision).toFixed(2)}x
+   
+═══════════════════════════════════════════════════════════════════
+📌 IMPORTANTE:
+   Aunque cada recarga da ~${porcentajeComision}% de comisión, el rendimiento
+   EFECTIVO con reinversión continua es ${rendimientoEfectivo.toFixed(2)}%
+   
+   Esto significa que tu inversión de $${capitalInicial.toFixed(2)} genera
+   $${totalComisionesGanadas.toFixed(2)} en comisiones (${rendimientoEfectivo.toFixed(2)}% de ganancia)
+   antes de agotar el capital.
+   
+   Además, te quedan $${capitalFinalDisponible.toFixed(2)} disponibles.
+═══════════════════════════════════════════════════════════════════
+
+📊 CÓMO FUNCIONA:
+   Recarga 1:  $${capitalInicial.toFixed(2)} - $${promedioRecarga} + $${(promedioRecarga * porcentajeComision / 100).toFixed(2)} = $${(capitalInicial - promedioRecarga + (promedioRecarga * porcentajeComision / 100)).toFixed(2)}
+   Recarga 2:  $${(capitalInicial - promedioRecarga + (promedioRecarga * porcentajeComision / 100)).toFixed(2)} - $${promedioRecarga} + $${(promedioRecarga * porcentajeComision / 100).toFixed(2)} = ...
+   
+   Las comisiones se reinvierten automáticamente, creando un efecto compuesto.
+`.trim()
+    };
+    
+  } catch (error) {
+    console.error('❌ Error calculando rendimiento con reinversión:', error);
+    throw error;
+  }
+}
+
+/**
+ * Calcular rendimiento real basado en datos históricos
+ * 
+ * Usa las recargas reales del periodo para calcular el rendimiento efectivo
+ * (no es simulación, usa datos reales de la BD)
+ * 
+ * @param {Object} params
+ * @param {string} params.startDate - Fecha inicio (YYYY-MM-DD)
+ * @param {string} params.endDate - Fecha fin (YYYY-MM-DD)
+ * 
+ * @returns {Object} Análisis del rendimiento real
+ */
+async calcularRendimientoRealConReinversion({ startDate, endDate }) {
+  try {
+    // Obtener todas las recargas del periodo
+    const recargas = await Recarga.findAll({
+      where: {
+        proveedor: 'movistar',
+        exitoso: true,
+        fecha: {
+          [Op.between]: [new Date(startDate), new Date(endDate)]
+        }
+      },
+      order: [['fecha', 'ASC']],
+      attributes: ['id', 'fecha', 'valor', 'comision', 'saldoGestopago']
+    });
+
+    if (recargas.length === 0) {
+      return { error: 'No hay recargas en el periodo' };
+    }
+
+    // Obtener saldo inicial (última recarga antes del periodo)
+    const recargaAnterior = await Recarga.findOne({
+      where: {
+        proveedor: 'movistar',
+        exitoso: true,
+        fecha: { [Op.lt]: new Date(startDate) }
+      },
+      order: [['fecha', 'DESC']],
+      attributes: ['saldoGestopago']
+    });
+
+    const saldoInicial = recargaAnterior ? parseFloat(recargaAnterior.saldoGestopago) : 0;
+    const saldoFinal = parseFloat(recargas[recargas.length - 1].saldoGestopago);
+
+    // Obtener incrementos del periodo
+    const totalIncrementos = await IncrementoSaldo.sum('diferencia', {
+      where: {
+        proveedor: 'movistar',
+        estado: { [Op.ne]: 'ignorado' },
+        fecha: {
+          [Op.between]: [new Date(startDate), new Date(endDate)]
+        }
+      }
+    }) || 0;
+
+    // Calcular totales
+    let totalInvertido = 0;
+    let totalComisiones = 0;
+    let promedioRecarga = 0;
+
+    recargas.forEach(r => {
+      totalInvertido += parseFloat(r.valor);
+      totalComisiones += parseFloat(r.comision || 0);
+    });
+
+    promedioRecarga = totalInvertido / recargas.length;
+
+    const capitalInicial = saldoInicial + totalIncrementos;
+    const rendimientoEfectivo = (totalComisiones / capitalInicial) * 100;
+    const porcentajePromedio = (totalComisiones / totalInvertido) * 100;
+    
+    // Calcular días del periodo
+    const fechaInicio = new Date(startDate);
+    const fechaFin = new Date(endDate);
+    const diasPeriodo = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
+    const recargasPorDia = recargas.length / diasPeriodo;
+
+    return {
+      // Capital
+      capitalInicial: capitalInicial.toFixed(2),
+      totalIncrementos: totalIncrementos.toFixed(2),
+      saldoInicial: saldoInicial.toFixed(2),
+      saldoFinal: saldoFinal.toFixed(2),
+      capitalDisponible: saldoFinal.toFixed(2),
+      
+      // Operaciones
+      numeroRecargas: recargas.length,
+      promedioRecarga: promedioRecarga.toFixed(2),
+      totalInvertido: totalInvertido.toFixed(2),
+      
+      // Ganancias
+      totalComisiones: totalComisiones.toFixed(2),
+      promedioComisionPorRecarga: (totalComisiones / recargas.length).toFixed(2),
+      
+      // Rendimiento
+      porcentajePromedio: porcentajePromedio.toFixed(2),
+      rendimientoEfectivo: rendimientoEfectivo.toFixed(2),
+      
+      // Estadísticas de tiempo
+      periodo: { inicio: startDate, fin: endDate },
+      diasPeriodo,
+      recargasPorDia: recargasPorDia.toFixed(2),
+      
+      explicacion: `
+═══════════════════════════════════════════════════════════════════
+🎯 RENDIMIENTO REAL DEL PERIODO ${startDate} a ${endDate}
+═══════════════════════════════════════════════════════════════════
+
+💰 CAPITAL:
+   • Saldo inicial:          $${saldoInicial.toFixed(2)}
+   • Incrementos inyectados: $${totalIncrementos.toFixed(2)}
+   • Capital total:          $${capitalInicial.toFixed(2)}
+
+📤 OPERACIONES (${recargas.length} recargas en ${diasPeriodo} días):
+   • Total invertido:        $${totalInvertido.toFixed(2)}
+   • Promedio por recarga:   $${promedioRecarga.toFixed(2)}
+   • Recargas por día:       ${recargasPorDia.toFixed(2)}
+
+✅ GANANCIAS:
+   • Comisiones ganadas:     $${totalComisiones.toFixed(2)}
+   • Comisión promedio:      ${porcentajePromedio.toFixed(2)}%
+   • Rendimiento EFECTIVO:   ${rendimientoEfectivo.toFixed(2)}%
+
+💎 RESULTADO:
+   • Saldo disponible:       $${saldoFinal.toFixed(2)}
+   • Ganancia total:         $${totalComisiones.toFixed(2)}
+
+═══════════════════════════════════════════════════════════════════
+📌 ANÁLISIS:
+   Con una inversión de $${capitalInicial.toFixed(2)}, realizaste ${recargas.length} 
+   recargas por un total de $${totalInvertido.toFixed(2)}, generando 
+   $${totalComisiones.toFixed(2)} en comisiones.
+   
+   Esto representa un rendimiento efectivo del ${rendimientoEfectivo.toFixed(2)}%
+   sobre tu capital, con reinversión automática de comisiones.
+   
+   Tu saldo disponible es $${saldoFinal.toFixed(2)}.
+═══════════════════════════════════════════════════════════════════
+      `.trim()
+    };
+
+  } catch (error) {
+    console.error('❌ Error calculando rendimiento real:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// EJEMPLO DE USO:
+// ============================================================================
+
+/*
+// En contabilidadService.js, agregar estos métodos a la clase
+
+// 1. SIMULACIÓN (para proyecciones):
+const simulacion = contabilidadService.calcularRendimientoConReinversion({
+  capitalInicial: 10000,
+  promedioRecarga: 60,
+  porcentajeComision: 7.2,
+  minimoOperable: 20
+});
+
+console.log(simulacion.explicacion);
+// Muestra cuántas recargas puedes hacer y cuánto ganarías
+
+// 2. DATOS REALES (para análisis histórico):
+const real = await contabilidadService.calcularRendimientoRealConReinversion({
+  startDate: '2026-02-10',
+  endDate: '2026-02-12'
+});
+
+console.log(real.explicacion);
+// Muestra qué pasó realmente en ese periodo
+*/
+
+}
 
 module.exports = new ContabilidadService();

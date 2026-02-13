@@ -177,10 +177,45 @@ router.get('/reporte-completo', async (req, res) => {
 
     // ===== CALCULAR GANANCIA REAL =====
     // Ganancia = Incrementos detectados - Depósitos asignados (inversión)
-    const gananciaReal = totalIncrementos - totalDepositosAsignados;
-    const porcentajeGanancia = totalDepositosAsignados > 0 
-      ? (gananciaReal / totalDepositosAsignados) * 100 
-      : 0;
+    let gananciaReal;
+    let porcentajeGanancia;
+    let explicacionGanancia;
+
+    if (proveedor === 'general') {
+      // ✅ GENERAL: Ganancia = Incrementos - Depósitos
+      gananciaReal = totalIncrementos - totalDepositosAsignados;
+      
+      porcentajeGanancia = totalDepositosAsignados > 0 
+        ? (gananciaReal / totalDepositosAsignados) * 100 
+        : 0;
+      
+      explicacionGanancia = {
+        formula: 'Ganancia = Incrementos - Depósitos',
+        detalle: `$${totalIncrementos.toFixed(2)} - $${totalDepositosAsignados.toFixed(2)} = $${gananciaReal.toFixed(2)}`,
+        nota: 'Los incrementos incluyen tu depósito + la ganancia instantánea (~2%)'
+      };
+      
+    } else if (proveedor === 'movistar') {
+      // ✅ MOVISTAR: Ganancia = Solo comisiones
+      gananciaReal = totalComisiones;
+      
+      // Calcular porcentaje sobre capital inicial
+      const capitalInicial = saldoInicioPeriodo + totalIncrementos;
+      
+      porcentajeGanancia = capitalInicial > 0
+        ? (gananciaReal / capitalInicial) * 100
+        : 0;
+      
+      explicacionGanancia = {
+        formula: 'Ganancia = Σ Comisiones',
+        detalle: `Total comisiones: $${totalComisiones.toFixed(2)}`,
+        porcentajeFormula: 'ROI = (Comisiones / Capital) × 100',
+        porcentajeDetalle: `($${totalComisiones.toFixed(2)} / $${capitalInicial.toFixed(2)}) × 100 = ${porcentajeGanancia.toFixed(2)}%`,
+        nota: 'Las comisiones son tu ganancia. El saldo final es capital disponible.',
+        capitalInicial: capitalInicial.toFixed(2),
+        capitalDisponible: saldoFinalReal.toFixed(2)
+      };
+    }
 
     // ===== VERIFICAR CONSISTENCIA =====
     // IMPORTANTE: Solo verificamos desde el inicio del periodo, no hacia atrás
@@ -264,9 +299,25 @@ router.get('/reporte-completo', async (req, res) => {
         depositosVerificados: totalDepositosVerificados,
         recargas: totalRecargas,
         comisiones: totalComisiones,
-        gananciaReal,
-        porcentajeGanancia
+        gananciaReal, // ⭐ Ahora diferenciado por proveedor
+        porcentajeGanancia, // ⭐ Ahora diferenciado por proveedor
+        explicacionGanancia // ⭐ NUEVO
       },
+      
+      // ⭐ NUEVO: Solo para Movistar
+      ...(proveedor === 'movistar' && {
+        analisisMovistar: {
+          capitalInicial: (saldoInicioPeriodo + totalIncrementos).toFixed(2),
+          totalInvertido: totalRecargas.toFixed(2),
+          totalComisiones: totalComisiones.toFixed(2),
+          capitalDisponible: saldoFinalReal.toFixed(2),
+          porcentajeComision: totalRecargas > 0 
+            ? ((totalComisiones / totalRecargas) * 100).toFixed(2) 
+            : '0.00',
+          roiReal: porcentajeGanancia.toFixed(2),
+          explicacion: `Con un capital de $${(saldoInicioPeriodo + totalIncrementos).toFixed(2)}, invertiste $${totalRecargas.toFixed(2)} en recargas y ganaste $${totalComisiones.toFixed(2)} en comisiones (${porcentajeGanancia.toFixed(2)}% ROI). Tu capital disponible es $${saldoFinalReal.toFixed(2)}.`
+        }
+      }),
       contadores: {
         incrementos: incrementos.length,
         depositos: depositos.length,

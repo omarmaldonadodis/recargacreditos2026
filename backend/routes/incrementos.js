@@ -1012,4 +1012,274 @@ router.get('/comparacion-proveedores', authenticateToken, soloAdmin, async (req,
   }
 });
 
+
+// ============================================================================
+// NUEVOS ENDPOINTS PARA RENDIMIENTO CON REINVERSIÓN
+// ============================================================================
+// Agregar estos endpoints al archivo backend/routes/incrementos.js
+
+/**
+ * GET /api/incrementos/movistar/simulacion-rendimiento
+ * 
+ * Simula el rendimiento efectivo con reinversión continua
+ * hasta agotar el capital
+ * 
+ * Query params:
+ * - capitalInicial: Capital de inversión (requerido)
+ * - promedioRecarga: Promedio de valor por recarga (default: 60)
+ * - porcentajeComision: % de comisión (default: 7.2)
+ * - minimoOperable: Saldo mínimo (default: 20)
+ * 
+ * Ejemplo:
+ * GET /api/incrementos/movistar/simulacion-rendimiento?capitalInicial=10000&promedioRecarga=60
+ * 
+ * Respuesta:
+ * {
+ *   "capitalInicial": "10000.00",
+ *   "numeroRecargas": 1086,
+ *   "totalComisionesGanadas": "4700.00",
+ *   "rendimientoEfectivo": "47.00%",
+ *   "explicacion": "..."
+ * }
+ */
+router.get('/movistar/simulacion-rendimiento', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const {
+      capitalInicial,
+      promedioRecarga = 60,
+      porcentajeComision = 7.2,
+      minimoOperable = 20
+    } = req.query;
+
+    if (!capitalInicial || isNaN(capitalInicial)) {
+      return res.status(400).json({
+        error: 'capitalInicial es requerido y debe ser un número'
+      });
+    }
+
+    const resultado = contabilidadService.calcularRendimientoConReinversion({
+      capitalInicial: parseFloat(capitalInicial),
+      promedioRecarga: parseFloat(promedioRecarga),
+      porcentajeComision: parseFloat(porcentajeComision),
+      minimoOperable: parseFloat(minimoOperable)
+    });
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('Error en simulación de rendimiento:', error);
+    res.status(500).json({
+      error: error.message,
+      detalle: 'Error al simular rendimiento con reinversión'
+    });
+  }
+});
+
+/**
+ * GET /api/incrementos/movistar/rendimiento-real
+ * 
+ * Calcula el rendimiento efectivo basado en datos históricos reales
+ * 
+ * Query params:
+ * - startDate: Fecha inicio (YYYY-MM-DD) (requerido)
+ * - endDate: Fecha fin (YYYY-MM-DD) (requerido)
+ * 
+ * Ejemplo:
+ * GET /api/incrementos/movistar/rendimiento-real?startDate=2026-02-10&endDate=2026-02-12
+ * 
+ * Respuesta:
+ * {
+ *   "capitalInicial": "16876.62",
+ *   "numeroRecargas": 15,
+ *   "totalComisiones": "79.13",
+ *   "rendimientoEfectivo": "0.47%",
+ *   "explicacion": "..."
+ * }
+ */
+router.get('/movistar/rendimiento-real', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        error: 'startDate y endDate son requeridos (formato: YYYY-MM-DD)'
+      });
+    }
+
+    const resultado = await contabilidadService.calcularRendimientoRealConReinversion({
+      startDate,
+      endDate
+    });
+
+    if (resultado.error) {
+      return res.status(404).json(resultado);
+    }
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('Error calculando rendimiento real:', error);
+    res.status(500).json({
+      error: error.message,
+      detalle: 'Error al calcular rendimiento real'
+    });
+  }
+});
+
+/**
+ * GET /api/incrementos/movistar/analisis-completo
+ * 
+ * Análisis completo que combina:
+ * 1. Métricas reales del periodo
+ * 2. Simulación de rendimiento con reinversión
+ * 3. Comparación entre diferentes escenarios
+ * 
+ * Query params:
+ * - startDate: Fecha inicio (YYYY-MM-DD)
+ * - endDate: Fecha fin (YYYY-MM-DD)
+ * 
+ * Respuesta combinada con todos los análisis
+ */
+router.get('/movistar/analisis-completo', authenticateToken, soloAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        error: 'startDate y endDate son requeridos'
+      });
+    }
+
+    // 1. Obtener métricas reales
+    const metricas = await contabilidadService.calcularMetricasRealesMovistar({
+      startDate,
+      endDate
+    });
+
+    if (metricas.error) {
+      return res.status(404).json(metricas);
+    }
+
+    // 2. Calcular rendimiento real
+    const rendimientoReal = await contabilidadService.calcularRendimientoRealConReinversion({
+      startDate,
+      endDate
+    });
+
+    // 3. Simular diferentes escenarios con el capital inicial real
+    const capitalInicial = parseFloat(metricas.capitalInicial);
+    const promedioRecarga = parseFloat(rendimientoReal.promedioRecarga);
+    const porcentajeComision = parseFloat(metricas.porcentajePeriodo);
+
+    const simulacion = contabilidadService.calcularRendimientoConReinversion({
+      capitalInicial,
+      promedioRecarga,
+      porcentajeComision,
+      minimoOperable: 20
+    });
+
+    // 4. Comparación
+    const comparacion = {
+      periodo: { inicio: startDate, fin: endDate },
+      
+      real: {
+        titulo: 'Lo que pasó realmente',
+        numeroRecargas: rendimientoReal.numeroRecargas,
+        totalInvertido: rendimientoReal.totalInvertido,
+        comisionesGanadas: rendimientoReal.totalComisiones,
+        rendimiento: rendimientoReal.rendimientoEfectivo,
+        saldoFinal: rendimientoReal.saldoFinal
+      },
+      
+      simulacion: {
+        titulo: 'Proyección hasta agotar capital',
+        numeroRecargas: simulacion.numeroRecargas,
+        totalInvertido: simulacion.totalInvertidoEnRecargas,
+        comisionesGanadas: simulacion.totalComisionesGanadas,
+        rendimiento: simulacion.rendimientoEfectivoRedondeado,
+        saldoFinal: simulacion.capitalFinalDisponible
+      },
+      
+      diferencias: {
+        recargasPendientes: parseInt(simulacion.numeroRecargas) - parseInt(rendimientoReal.numeroRecargas),
+        comisionesPotenciales: (parseFloat(simulacion.totalComisionesGanadas) - parseFloat(rendimientoReal.totalComisiones)).toFixed(2),
+        rendimientoPotencial: (parseFloat(simulacion.rendimientoEfectivoRedondeado) - parseFloat(rendimientoReal.rendimientoEfectivo)).toFixed(2)
+      },
+      
+      resumen: `
+═══════════════════════════════════════════════════════════════════
+🎯 ANÁLISIS COMPLETO - ${startDate} a ${endDate}
+═══════════════════════════════════════════════════════════════════
+
+📊 LO QUE PASÓ:
+   • Capital: $${capitalInicial.toFixed(2)}
+   • Recargas: ${rendimientoReal.numeroRecargas}
+   • Comisiones: $${rendimientoReal.totalComisiones}
+   • Rendimiento: ${rendimientoReal.rendimientoEfectivo}%
+
+🔮 PROYECCIÓN (hasta agotar capital):
+   • Recargas totales: ${simulacion.numeroRecargas}
+   • Comisiones totales: $${simulacion.totalComisionesGanadas}
+   • Rendimiento efectivo: ${simulacion.rendimientoEfectivoRedondeado}%
+
+📈 POTENCIAL RESTANTE:
+   • Recargas pendientes: ${parseInt(simulacion.numeroRecargas) - parseInt(rendimientoReal.numeroRecargas)}
+   • Comisiones por ganar: $${(parseFloat(simulacion.totalComisionesGanadas) - parseFloat(rendimientoReal.totalComisiones)).toFixed(2)}
+   • Rendimiento adicional: ${(parseFloat(simulacion.rendimientoEfectivoRedondeado) - parseFloat(rendimientoReal.rendimientoEfectivo)).toFixed(2)}%
+
+═══════════════════════════════════════════════════════════════════
+      `.trim()
+    };
+
+    res.json({
+      metricas,
+      rendimientoReal,
+      simulacion,
+      comparacion
+    });
+
+  } catch (error) {
+    console.error('Error en análisis completo:', error);
+    res.status(500).json({
+      error: error.message,
+      detalle: 'Error al generar análisis completo'
+    });
+  }
+});
+
+// ============================================================================
+// EJEMPLO DE USO DESDE FRONTEND:
+// ============================================================================
+
+/*
+
+// 1. SIMULACIÓN (para proyecciones):
+fetch('/api/incrementos/movistar/simulacion-rendimiento?capitalInicial=10000&promedioRecarga=60')
+  .then(res => res.json())
+  .then(data => {
+    console.log('Simulación:', data.explicacion);
+    console.log('Rendimiento efectivo:', data.rendimientoEfectivoRedondeado);
+    console.log('Comisiones totales:', data.totalComisionesGanadas);
+  });
+
+// 2. RENDIMIENTO REAL (histórico):
+fetch('/api/incrementos/movistar/rendimiento-real?startDate=2026-02-10&endDate=2026-02-12')
+  .then(res => res.json())
+  .then(data => {
+    console.log('Rendimiento real:', data.explicacion);
+    console.log('Rendimiento efectivo:', data.rendimientoEfectivo);
+  });
+
+// 3. ANÁLISIS COMPLETO (combina todo):
+fetch('/api/incrementos/movistar/analisis-completo?startDate=2026-02-10&endDate=2026-02-12')
+  .then(res => res.json())
+  .then(data => {
+    console.log('Análisis completo:', data.comparacion.resumen);
+    console.log('Real:', data.real);
+    console.log('Simulación:', data.simulacion);
+  });
+
+*/
+
+
 module.exports = router;
