@@ -24,6 +24,9 @@ import { FiInfo } from "react-icons/fi";
 const IncrementosModal = ({ show, handleClose, proveedor }) => {
   const [activeTab, setActiveTab] = useState('alertas');
   const [loading, setLoading] = useState(false);
+
+  const [modalInicializado, setModalInicializado] = useState(false);
+
   
   // ============= ESTADOS EXISTENTES =============
   const [incrementos, setIncrementos] = useState([]);
@@ -126,19 +129,24 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     }
   }, [fechaInicio, fechaFin, activeTab, show]);
 
-  // 🔧 FIX 2: Mejorar validación de pestañas sin causar loops
+  // 🔧 SOLUCIÓN: Controlar inicialización del modal
   useEffect(() => {
-    if (!show) return; // No hacer nada si el modal está cerrado
-    
-    // Solo redirigir si estamos en una pestaña que requiere datos que no existen
-    if (activeTab === 'notificaciones' && incrementos.length === 0) {
-      setActiveTab('alertas');
+    if (show && !modalInicializado) {
+      // Modal se abre por primera vez
+      setModalInicializado(true);
+      
+      // Validar pestaña inicial solo si es necesario
+      if (activeTab === 'notificaciones' && incrementos.length === 0) {
+        setActiveTab('alertas');
+      }
+      if (activeTab === 'asignar' && !selectedIncremento) {
+        setActiveTab('alertas');
+      }
+    } else if (!show) {
+      // Modal se cierra - resetear flag
+      setModalInicializado(false);
     }
-    
-    if (activeTab === 'asignar' && !selectedIncremento) {
-      setActiveTab('alertas');
-    }
-  }, [show]); // Solo ejecutar cuando se abre el modal
+  }, [show]); // ⚠️ SOLO depende de 'show'
 
   useEffect(() => {
     if (activeTab === 'reportes' && fechaInicio && fechaFin && show) {
@@ -153,6 +161,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
   }, [fechaInicio, fechaFin, activeTab, show, proveedor]);
 
   const resetearEstados = () => {
+    setModalInicializado(false);
     setActiveTab('alertas');
     setIncrementos([]);
     setSelectedIncremento(null);
@@ -1177,7 +1186,93 @@ const exportarExcel = () => {
     );
   };
 
+
+  const ToastFlotante = () => {
+  if (!alert.show) return null;
+  
+  const colores = {
+    success: { bg: '#198754', icon: <FiCheckCircle /> },
+    danger:  { bg: '#dc3545', icon: <FiX /> },
+    warning: { bg: '#fd7e14', icon: <FiAlertTriangle /> },
+    info:    { bg: '#0dcaf0', icon: <FiInfo /> },
+  };
+  
+    const { bg, icon } = colores[alert.variant] || colores.info;
+    
+    return (
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        minWidth: '320px',
+        maxWidth: '500px',
+        backgroundColor: bg,
+        color: '#fff',
+        padding: '12px 20px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        animation: 'fadeInDown 0.3s ease',
+      }}>
+        <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+        <span style={{ flex: 1 }}>{alert.message}</span>
+        <button
+          onClick={() => setAlert({ ...alert, show: false })}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#fff',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            padding: '0 4px',
+            opacity: 0.8,
+          }}
+        >
+          <FiX />
+        </button>
+      </div>
+    );
+  };
+
   return (
+      <>
+
+            {alert.show && (
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        minWidth: '320px',
+        maxWidth: '500px',
+        backgroundColor: alert.variant === 'success' ? '#0A74DA' : alert.variant === 'danger' ? '#dc3545' : alert.variant === 'warning' ? '#fd7e14' : '#0dcaf0',
+        color: '#fff',
+        padding: '12px 20px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        animation: 'fadeInDown 0.3s ease',
+      }}>
+        <span style={{ fontSize: '1.2rem' }}>
+          {alert.variant === 'success' ? <FiCheckCircle /> : alert.variant === 'danger' ? <FiX /> : <FiAlertTriangle />}
+        </span>
+        <span style={{ flex: 1 }}>{alert.message}</span>
+        <button
+          onClick={() => setAlert({ ...alert, show: false })}
+          style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px', opacity: 0.8 }}
+        >
+          <FiX />
+        </button>
+      </div>
+    )}
+
     <Modal 
       show={show} 
       onHide={handleClose} 
@@ -1199,11 +1294,7 @@ const exportarExcel = () => {
       </Modal.Header>
       
       <Modal.Body style={{ maxHeight: '75vh', overflowY: 'auto' }}>
-        {alert.show && (
-          <Alert variant={alert.variant} onClose={() => setAlert({ ...alert, show: false })} dismissible>
-            {alert.message}
-          </Alert>
-        )}
+
 
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
           
@@ -2021,7 +2112,10 @@ const exportarExcel = () => {
         </Button>
       </Modal.Footer>
     </Modal>
+      </>
+
   );
 };
 
 export default IncrementosModal;
+

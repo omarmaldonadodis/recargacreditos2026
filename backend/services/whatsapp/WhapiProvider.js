@@ -6,7 +6,6 @@ class WhapiProvider extends WhatsAppProvider {
   constructor(apiToken, channelId = null) {
     super();
     
-    // Configuración
     if (!apiToken) {
       this.isConfigured = false;
       console.warn('⚠️ Whapi.cloud no está configurado. Falta WHAPI_API_TOKEN en .env');
@@ -14,11 +13,13 @@ class WhapiProvider extends WhatsAppProvider {
     }
 
     this.apiToken = apiToken;
-    this.channelId = channelId; // Opcional, pero recomendado para multi-canal
+    this.channelId = channelId;
     this.baseURL = 'https://gate.whapi.cloud';
     this.isConfigured = true;
     
-    // Configurar axios con el token
+    // Cache de números resueltos para no llamar la API en cada envío
+    this.numeroCache = new Map();
+
     this.client = axios.create({
       baseURL: this.baseURL,
       headers: {
@@ -26,26 +27,78 @@ class WhapiProvider extends WhatsAppProvider {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      timeout: 30000 // 30 segundos timeout
+      timeout: 30000
     });
 
     console.log('✅ Whapi.cloud configurado correctamente');
   }
 
   /**
-   * Formatea número de teléfono para Whapi.cloud
-   * Ejemplo: +593987654321 -> 593987654321 (sin + ni espacios)
+   * Formato base: quita +, espacios y guiones
    */
   formatPhoneNumber(celular) {
-    return celular.replace(/\s+/g, '').replace('+', '');
+    let numero = celular.replace(/[\s+\-()]/g, '');
+
+    // Fix México: 52XXXXXXXXXX (12 dígitos) → 521XXXXXXXXXX (13 dígitos)
+    if (numero.startsWith('52') && numero.length === 12) {
+      numero = '521' + numero.slice(2);
+    }
+
+    return numero + '@s.whatsapp.net';
   }
 
   /**
-   * Envía un mensaje de texto usando Whapi.cloud
+   * Resuelve el número correcto usando la API de Whapi (con cache)
+   * Esto maneja automáticamente los requisitos de cada país
+   */
+  async resolverNumero(celular) {
+    // Revisar cache primero
+    if (this.numeroCache.has(celular)) {
+      return this.numeroCache.get(celular);
+    }
+
+    try {
+      let numero = celular.replace(/\s+/g, '');
+      if (!numero.startsWith('+')) {
+        numero = '+' + numero.replace('+', '');
+      }
+
+      const response = await this.client.post('/contacts', {
+        force_check: false,
+        contacts: [numero]
+      });
+
+      const contacto = response.data?.contacts?.[0];
+
+      if (contacto?.status === 'valid' && contacto?.wa_id) {
+        const waId = contacto.wa_id.includes('@')
+          ? contacto.wa_id
+          : contacto.wa_id + '@s.whatsapp.net';
+
+        console.log(`📱 Número resuelto: ${celular} → ${waId}`);
+
+        // Guardar en cache (expira en 24h)
+        this.numeroCache.set(celular, waId);
+        setTimeout(() => this.numeroCache.delete(celular), 24 * 60 * 60 * 1000);
+
+        return waId;
+      }
+
+      // Si no es válido, loguear y usar fallback
+      console.warn(`⚠️ Número no válido en WhatsApp: ${celular} (status: ${contacto?.status})`);
+      return this.formatPhoneNumber(celular);
+
+    } catch (error) {
+      console.warn(`⚠️ No se pudo resolver número ${celular}, usando formato local:`, error.message);
+      return this.formatPhoneNumber(celular);
+    }
+  }
+
+  /**
+   * Envía un mensaje de texto
    */
   async enviarMensaje(numero, mensaje) {
     if (!this.isConfigured) {
-      console.error('✗ Whapi.cloud no está configurado correctamente');
       return { 
         success: false, 
         error: 'Whapi.cloud no está configurado. Verifica WHAPI_API_TOKEN en .env',
@@ -54,14 +107,12 @@ class WhapiProvider extends WhatsAppProvider {
     }
 
     try {
-      const to = this.formatPhoneNumber(numero);
-      
-      const payload = {
-        to: to,
-        body: mensaje
-      };
+      // Resolver número correcto para el país
+      const to = await this.resolverNumero(numero);
+      console.log(`📤 Enviando WhatsApp → ${numero} (${to})`);
 
-      // Si hay typing_time configurado, agregarlo (simula que alguien está escribiendo)
+      const payload = { to, body: mensaje };
+
       const typingTime = process.env.WHAPI_TYPING_TIME;
       if (typingTime) {
         payload.typing_time = parseInt(typingTime);
@@ -70,13 +121,14 @@ class WhapiProvider extends WhatsAppProvider {
       const response = await this.client.post('/messages/text', payload);
 
       if (response.data && response.data.sent) {
-        console.log(`✓ WhatsApp enviado (Whapi.cloud) → ${numero}`);
+        console.log(`✓ WhatsApp enviado → ${numero} | ID: ${response.data.id}`);
         
         return { 
           success: true, 
           messageId: response.data.id,
           provider: 'whapi',
           timestamp: new Date().toISOString(),
+          resolvedNumber: to,
           data: response.data
         };
       } else {
@@ -84,9 +136,8 @@ class WhapiProvider extends WhatsAppProvider {
       }
 
     } catch (error) {
-      console.error('✗ Error enviando WhatsApp (Whapi.cloud):', error.message);
+      console.error(`✗ Error enviando WhatsApp → ${numero}:`, error.message);
       
-      // Manejo de errores específicos de la API
       let errorMessage = error.message;
       
       if (error.response) {
@@ -94,23 +145,12 @@ class WhapiProvider extends WhatsAppProvider {
         const data = error.response.data;
         
         switch(status) {
-          case 401:
-            errorMessage = 'Token de API inválido o expirado';
-            break;
-          case 403:
-            errorMessage = 'Acceso denegado. Verifica los permisos del token';
-            break;
-          case 404:
-            errorMessage = 'Número no encontrado en WhatsApp';
-            break;
-          case 429:
-            errorMessage = 'Límite de tasa excedido. Intenta más tarde';
-            break;
-          case 500:
-            errorMessage = 'Error del servidor de Whapi.cloud';
-            break;
-          default:
-            errorMessage = data?.message || data?.error || errorMessage;
+          case 401: errorMessage = 'Token de API inválido o expirado'; break;
+          case 403: errorMessage = 'Acceso denegado. Verifica los permisos del token'; break;
+          case 404: errorMessage = 'Número no encontrado en WhatsApp'; break;
+          case 429: errorMessage = 'Límite de tasa excedido. Intenta más tarde'; break;
+          case 500: errorMessage = 'Error del servidor de Whapi.cloud'; break;
+          default:  errorMessage = data?.message || data?.error || errorMessage;
         }
         
         console.error(`   Estado HTTP: ${status}`);
@@ -126,79 +166,68 @@ class WhapiProvider extends WhatsAppProvider {
   }
 
   /**
-   * Verifica el estado de la conexión con Whapi.cloud
+   * Envía un mensaje con imagen
    */
-  async verificarEstado() {
+  async enviarMensajeConImagen(numero, mensaje, urlImagen) {
     if (!this.isConfigured) {
-      return {
-        conectado: false,
-        error: 'No configurado'
-      };
+      return { success: false, error: 'Whapi.cloud no está configurado', provider: 'whapi' };
     }
 
     try {
-      // Endpoint para verificar el estado del canal
-      const response = await this.client.get('/settings');
+      const to = await this.resolverNumero(numero);
       
+      const response = await this.client.post('/messages/image', {
+        to,
+        body: mensaje,
+        media: urlImagen
+      });
+
+      if (response.data && response.data.sent) {
+        console.log(`✓ WhatsApp con imagen enviado → ${numero}`);
+        return { success: true, messageId: response.data.id, provider: 'whapi' };
+      } else {
+        throw new Error('Respuesta inesperada del servidor');
+      }
+
+    } catch (error) {
+      console.error('✗ Error enviando imagen:', error.message);
+      return { success: false, error: error.message, provider: 'whapi' };
+    }
+  }
+
+  /**
+   * Verifica el estado de la conexión
+   */
+  async verificarEstado() {
+    if (!this.isConfigured) {
+      return { conectado: false, error: 'No configurado' };
+    }
+
+    try {
+      const response = await this.client.get('/settings');
       return {
         conectado: true,
         canal: response.data.channel || 'default',
         numero: response.data.number || 'N/A',
         estado: response.data.status || 'unknown'
       };
-      
     } catch (error) {
-      console.error('Error verificando estado:', error.message);
-      
-      return {
-        conectado: false,
-        error: error.message
-      };
+      return { conectado: false, error: error.message };
     }
   }
 
-  /**
-   * Obtiene la información del canal
-   */
   async obtenerInfoCanal() {
-    if (!this.isConfigured) {
-      throw new Error('Whapi.cloud no está configurado');
-    }
-
-    try {
-      const response = await this.client.get('/settings');
-      return response.data;
-    } catch (error) {
-      console.error('Error obteniendo info del canal:', error.message);
-      throw error;
-    }
+    if (!this.isConfigured) throw new Error('Whapi.cloud no está configurado');
+    const response = await this.client.get('/settings');
+    return response.data;
   }
 
-  /**
-   * Verifica si un número está registrado en WhatsApp
-   */
   async verificarNumero(numero) {
-    if (!this.isConfigured) {
-      throw new Error('Whapi.cloud no está configurado');
-    }
-
-    try {
-      const to = this.formatPhoneNumber(numero);
-      const response = await this.client.post('/contacts/check', {
-        contacts: [to]
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error('Error verificando número:', error.message);
-      throw error;
-    }
+    if (!this.isConfigured) throw new Error('Whapi.cloud no está configurado');
+    const to = await this.resolverNumero(numero);
+    return { waId: to, valido: true };
   }
 
-  /**
-   * Whapi.cloud no requiere inicialización especial
-   * La conexión se maneja a través del QR en el dashboard
-   */
   async inicializar() {
     if (!this.isConfigured) {
       console.error('⚠️ Whapi.cloud no puede inicializarse: falta configuración');
@@ -207,39 +236,24 @@ class WhapiProvider extends WhatsAppProvider {
 
     try {
       console.log('🔄 Verificando conexión con Whapi.cloud...');
-      
       const estado = await this.verificarEstado();
       
       if (estado.conectado) {
         console.log('✅ Whapi.cloud está listo para enviar mensajes');
-        console.log(`   Canal: ${estado.canal}`);
-        console.log(`   Número: ${estado.numero}`);
-        console.log(`   Estado: ${estado.estado}`);
       } else {
-        console.warn('⚠️ No se pudo verificar la conexión con Whapi.cloud');
-        console.warn(`   Error: ${estado.error}`);
-        console.warn('   Asegúrate de haber escaneado el QR en el dashboard de Whapi.cloud');
+        console.warn('⚠️ No se pudo verificar la conexión:', estado.error);
         console.warn('   Dashboard: https://panel.whapi.cloud/channels');
       }
-      
     } catch (error) {
       console.error('❌ Error al inicializar Whapi.cloud:', error.message);
-      console.warn('   Asegúrate de haber escaneado el QR en el dashboard de Whapi.cloud');
-      console.warn('   Dashboard: https://panel.whapi.cloud/channels');
     }
   }
 
-  /**
-   * Whapi.cloud no requiere cierre explícito
-   */
   async cerrar() {
-    console.log('🔌 Cerrando conexión con Whapi.cloud...');
-    // No hay conexión persistente que cerrar
+    this.numeroCache.clear();
+    console.log('🔌 Whapi.cloud cerrado');
   }
 
-  /**
-   * Obtiene el estado actual del proveedor
-   */
   getEstado() {
     if (!this.isConfigured) {
       return {
@@ -250,56 +264,13 @@ class WhapiProvider extends WhatsAppProvider {
     }
 
     return {
-      conectado: true, // Asumimos que está conectado si está configurado
+      conectado: true,
       configurado: true,
       proveedor: 'whapi.cloud',
       baseURL: this.baseURL,
-      tieneToken: !!this.apiToken
+      tieneToken: !!this.apiToken,
+      numerosEnCache: this.numeroCache.size
     };
-  }
-
-  /**
-   * Envía un mensaje con imagen (opcional)
-   */
-  async enviarMensajeConImagen(numero, mensaje, urlImagen) {
-    if (!this.isConfigured) {
-      return { 
-        success: false, 
-        error: 'Whapi.cloud no está configurado',
-        provider: 'whapi'
-      };
-    }
-
-    try {
-      const to = this.formatPhoneNumber(numero);
-      
-      const payload = {
-        to: to,
-        body: mensaje,
-        media: urlImagen
-      };
-
-      const response = await this.client.post('/messages/image', payload);
-
-      if (response.data && response.data.sent) {
-        console.log(`✓ WhatsApp con imagen enviado → ${numero}`);
-        return { 
-          success: true, 
-          messageId: response.data.id,
-          provider: 'whapi'
-        };
-      } else {
-        throw new Error('Respuesta inesperada del servidor');
-      }
-
-    } catch (error) {
-      console.error('✗ Error enviando imagen:', error.message);
-      return { 
-        success: false, 
-        error: error.message,
-        provider: 'whapi'
-      };
-    }
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useMemo } from "react";
 import { Navbar, Nav, Container, Image, Button, Badge } from "react-bootstrap";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
@@ -10,6 +10,9 @@ import useIncrementosNotificaciones from "../../hooks/useIncrementosNotificacion
 
 const NavbarComponent = () => {
   const { user, logout, updateUserRole } = useContext(AuthContext);
+
+  // ⭐ Memorizar estado de admin para evitar re-renders
+  const isAdmin = useMemo(() => user?.rol === "administrador", [user?.rol]);
   const [saldo, setSaldo] = useState(null);
   const [pendiente, setPendiente] = useState(null);
   const [promedioVentaSemanal, setPromedioVentaSemanal] = useState(null);
@@ -34,10 +37,9 @@ const NavbarComponent = () => {
     totalNotificaciones,
     refetch: refetchNotificaciones
   } = useIncrementosNotificaciones(
-    user?.rol === "administrador", // Solo habilitar para admins
-    30000 // Polling cada 30 segundos
+    isAdmin, // ⭐ Usar el valor memoizado
+    30000
   );
-
   useEffect(() => {
     if (user) {
       setShow(false);
