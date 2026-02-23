@@ -1,15 +1,5 @@
-// backend/services/whatsapp/BaileysProvider.js
-const { 
-  default: makeWASocket, 
-  useMultiFileAuthState, 
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore
-} = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
 const WhatsAppProvider = require('./WhatsAppProvider');
-const pino = require('pino');
-const qrcode = require('qrcode-terminal');
+
 const fs = require('fs');
 const path = require('path');
 

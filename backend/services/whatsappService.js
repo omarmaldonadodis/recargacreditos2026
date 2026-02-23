@@ -83,6 +83,52 @@ class WhatsAppService {
   }
 
   /**
+   * Envía notificación especial para tiendas de contado
+   */
+  async notificarContado(celular, valor, saldoActual, nombreTienda) {
+    if (!this.enabled) {
+      return { success: false, error: 'WhatsApp desactivado', silent: true };
+    }
+    try {
+      const provider = await this.getProvider();
+      const mensaje = provider.construirMensajeContado(valor, saldoActual, nombreTienda);
+      return await provider.enviarMensaje(celular, mensaje);
+    } catch (error) {
+      console.error('Error en notificarContado:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async notificarSaldoBajo(celular, saldoActual, nombreTienda) {
+    if (!this.enabled) return { success: false, silent: true };
+    try {
+      const provider = await this.getProvider();
+      const saldoFormateado = provider.formatMonto(saldoActual);
+      const mensaje = `⚠️ *${nombreTienda}*\n\n` +
+                      `Tu saldo está muy bajo: ${saldoFormateado}\n\n` +
+                      `Recarga pronto para no quedarte sin servicio.`;
+      return await provider.enviarMensaje(celular, mensaje);
+    } catch (error) {
+      console.error('Error en notificarSaldoBajo:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async notificarSinSaldo(celular, nombreTienda) {
+    if (!this.enabled) return { success: false, silent: true };
+    try {
+      const provider = await this.getProvider();
+      const mensaje = `😔 *${nombreTienda}*\n\n` +
+                      `Llevas una semana sin saldo.\n\n` +
+                      `Contáctanos para recargar y seguir vendiendo.`;
+      return await provider.enviarMensaje(celular, mensaje);
+    } catch (error) {
+      console.error('Error en notificarSinSaldo:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Cierra la conexión (útil al apagar el servidor)
    */
   async cerrar() {

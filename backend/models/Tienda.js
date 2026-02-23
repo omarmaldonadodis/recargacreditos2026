@@ -48,6 +48,21 @@ Tienda.init({
   contado: { type: DataTypes.BOOLEAN, defaultValue: false },
   orden: { type: DataTypes.INTEGER },
   seleccionado: { type: DataTypes.BOOLEAN, defaultValue: false },
+  notificadoSaldoBajo: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Ya se notificó que el saldo es ≤ 100'
+  },
+  fechaSaldoCero: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Fecha en que el saldo llegó a 0'
+  },
+  notificadoSinSaldo: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Ya se notificó que lleva una semana sin saldo'
+  },
 
 
 }, {

@@ -34,7 +34,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
   const [nuevoDeposito, setNuevoDeposito] = useState({
     monto: '',
     usuarioId: '',
-    tipoDeposito: 'efectivo',
+    tipoDeposito: 'stp',
     referencia: '',
     notas: ''
   });
@@ -168,7 +168,7 @@ const IncrementosModal = ({ show, handleClose, proveedor }) => {
     setNuevoDeposito({
       monto: '',
       usuarioId: '',
-      tipoDeposito: 'efectivo',
+      tipoDeposito: 'stp',
       referencia: '',
       notas: ''
     });
@@ -623,7 +623,7 @@ const exportarExcel = () => {
       dep.id,
       dep.fecha,
       dep.monto,
-      dep.metodoPago || '-',
+    formatearTipoDeposito(dep.metodoPago),  // ← aquí
       dep.usuario || '-',
       dep.referencia || '-',
       dep.verificado ? 'Sí' : 'No',
@@ -741,7 +741,7 @@ const exportarExcel = () => {
       setNuevoDeposito({ 
         monto: '', 
         usuarioId: '', 
-        tipoDeposito: 'efectivo',
+        tipoDeposito: 'stp',
         referencia: '',
         notas: '' 
       });
@@ -1122,7 +1122,7 @@ const exportarExcel = () => {
                           <td className="small text-end fw-bold" data-label="Monto">
                             {formatearMoneda(dep.monto)}
                           </td>
-                          <td className="small" data-label="Método">{dep.metodoPago || '-'}</td>
+                          <td className="small" data-label="Método">{formatearTipoDeposito(dep.tipoDeposito)}</td>
                           <td className="small" data-label="Usuario">{dep.usuario || '-'}</td>
                           <td className="small" data-label="Asignado">
                             <Badge bg={dep.asignado ? 'success' : 'warning'}>
@@ -1185,6 +1185,21 @@ const exportarExcel = () => {
       </>
     );
   };
+
+  const formatearTipoDeposito = (tipo) => {
+  const tipos = {
+    'stp': 'STP',
+    'cuenta_proveedor': 'Cuenta bancaria de proveedor',
+    'cuenta_personal': 'Cuenta bancaria personal',
+    'inyeccion': 'Inyección',
+    // fallbacks por si hay datos viejos
+    'efectivo': 'Efectivo',
+    'transferencia': 'Transferencia',
+    'ajuste': 'Ajuste',
+    'otro': 'Otro'
+  };
+  return tipos[tipo] || tipo || '-';
+};
 
 
   const ToastFlotante = () => {
@@ -1595,10 +1610,10 @@ const exportarExcel = () => {
                         value={nuevoDeposito.tipoDeposito}
                         onChange={(e) => setNuevoDeposito({ ...nuevoDeposito, tipoDeposito: e.target.value })}
                       >
-                        <option value="efectivo">Efectivo</option>
-                        <option value="transferencia">Transferencia</option>
-                        <option value="ajuste">Ajuste</option>
-                        <option value="otro">Otro</option>
+                        <option value="stp">STP</option>
+                        <option value="cuenta_proveedor">Cuenta bancaria de proveedor</option>
+                        <option value="cuenta_personal">Cuenta bancaria personal</option>
+                        <option value="inyeccion">Inyección</option>
                       </Form.Select>
                     </Form.Group>
                     
@@ -1665,8 +1680,7 @@ const exportarExcel = () => {
                               {dep.Usuario?.nombres_apellidos || dep.Usuario?.nombre_tienda}
                             </td>
                             <td data-label="Tipo">
-                              <Badge bg="info">{dep.tipoDeposito}</Badge>
-                            </td>
+                              <Badge bg="info">{formatearTipoDeposito(dep.tipoDeposito)}</Badge>                            </td>
                             <td data-label="Referencia">{dep.referencia || '-'}</td>
                             <td data-label="Fecha">{new Date(dep.fecha).toLocaleDateString()}</td>
                             <td data-label="Estado">

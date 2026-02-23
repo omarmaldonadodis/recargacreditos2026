@@ -85,6 +85,20 @@ class WhatsAppProvider {
   }
 
   /**
+  * Construye mensaje para tiendas de contado (pago automático)
+  */
+  construirMensajeContado(valor, saldoActual, nombreTienda) {
+    const montoOperacion = this.formatMonto(valor);
+    const saldoFormateado = this.formatMonto(saldoActual);
+
+    return `💵 *${nombreTienda}*\n\n` +
+          `Se acreditaron ${montoOperacion} a tu saldo\n\n` +
+          `💰 Saldo actual: ${saldoFormateado}\n\n` +
+          `✅ *¡No tienes deudas pendientes!*\n\n` +
+          `Gracias por tu pago puntual.`;
+  }
+
+  /**
    * Envía un mensaje de WhatsApp
    * @param {string} numero - Número de destino
    * @param {string} mensaje - Contenido del mensaje

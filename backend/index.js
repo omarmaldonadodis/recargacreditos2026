@@ -21,6 +21,8 @@ const SaldoProveedor = require('./models/SaldoProveedor');
 const AjusteSaldo = require('./models/AjusteSaldo');
 
 const alertasRoutes = require('./routes/alertas');
+const iniciarCronSaldoCero = require('./services/checkSaldoCero'); // ← AGREGAR
+
 
 
 // ============= CONFIGURAR RELACIONES =============
@@ -138,6 +140,9 @@ sequelize.sync({ alter: true }).then(async () => {
   // Iniciar sistema de alertas
   iniciarSistemaAlertas();
 
+    iniciarCronSaldoCero();                       // ← AGREGAR
+
+
     // ===== INICIALIZAR WHATSAPP =====
     // ===== INICIALIZAR WHATSAPP (OPCIONAL) =====
     const whatsappEnabled = process.env.WHATSAPP_ENABLED !== 'false';
@@ -206,6 +211,18 @@ async function inicializarConfiguracion() {
         defaults: config
       });
     }
+
+        // ── NUEVO: inicializar fechaSaldoCero para tiendas que ya están en 0 ──
+    const [filas] = await sequelize.query(`
+      UPDATE Tiendas 
+      SET fechaSaldoCero = NOW() 
+      WHERE saldo <= 0 
+        AND fechaSaldoCero IS NULL
+    `);
+    if (filas?.affectedRows > 0) {
+      console.log(`📅 ${filas.affectedRows} tienda(s) en 0 inicializadas con fechaSaldoCero = hoy`);
+    }
+    // ──────
     
     console.log('⚙️  Configuración del sistema inicializada');
   } catch (error) {

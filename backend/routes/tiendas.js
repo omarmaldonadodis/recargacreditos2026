@@ -522,6 +522,47 @@ router.post('/recargas2', authenticateToken, async (req, res) => {
         await tienda.save();
         await usuario.save();
 
+        // ===== NOTIFICACIONES DE SALDO =====
+        setImmediate(async () => {
+          try {
+            const whatsappService = require('../services/whatsappService');
+            const tiendaActual = await Tienda.findByPk(tienda.id);
+            const usuarioActual = await Usuario.findByPk(usuarioId);
+
+            if (tiendaActual.saldo <= 0) {
+              // Saldo llegó a cero: marcar fecha y resetear bandera
+              if (!tiendaActual.fechaSaldoCero) {
+                tiendaActual.fechaSaldoCero = new Date();
+                tiendaActual.notificadoSinSaldo = false;
+                await tiendaActual.save();
+              }
+            } else {
+              // Tiene saldo: limpiar fecha de saldo cero
+              if (tiendaActual.fechaSaldoCero) {
+                tiendaActual.fechaSaldoCero = null;
+                tiendaActual.notificadoSinSaldo = false;
+              }
+
+              // Notificación saldo bajo (≤ 100)
+              if (tiendaActual.saldo <= 100 && !tiendaActual.notificadoSaldoBajo) {
+                await whatsappService.notificarSaldoBajo(
+                  usuarioActual.celular,
+                  tiendaActual.saldo,
+                  usuarioActual.nombre_tienda
+                );
+                tiendaActual.notificadoSaldoBajo = true;
+              } else if (tiendaActual.saldo > 100) {
+                // Reset para próxima vez que baje de 100
+                tiendaActual.notificadoSaldoBajo = false;
+              }
+
+              await tiendaActual.save();
+            }
+          } catch (err) {
+            console.error('Error en notificaciones de saldo:', err);
+          }
+        });
+
         // Registrar recarga exitosa
         const nuevaRecarga = await Recarga.create({
           TiendaId: tienda.id,

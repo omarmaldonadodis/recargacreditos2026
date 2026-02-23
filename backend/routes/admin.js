@@ -999,11 +999,20 @@ router.post('/acreditar-saldo2/:id', authenticateToken, async (req, res) => {
     // ===== NOTIFICACIÓN POR WHATSAPP =====
     const whatsappService = require('../services/whatsappService');
 
-    // Enviar de forma asíncrona (no bloquear respuesta)
     setImmediate(async () => {
       try {
-        if (credito) {
-          // Es un abono a crédito
+        const contado = tienda.contado; // ya fue modificado, usamos el valor original
+
+        if (contado && !credito) {
+          // Tienda de contado: saldo acreditado + deuda saldada automáticamente
+          await whatsappService.notificarContado(
+            usuario.celular,
+            valorConPorcentaje,
+            tienda.saldo,
+            usuario.nombre_tienda
+          );
+        } else if (credito) {
+          // Abono a crédito normal
           await whatsappService.notificarAbono(
             usuario.celular,
             valor,
@@ -1011,7 +1020,7 @@ router.post('/acreditar-saldo2/:id', authenticateToken, async (req, res) => {
             usuario.nombre_tienda
           );
         } else {
-          // Es modificación de saldo
+          // Acreditación de saldo normal
           await whatsappService.notificarSaldo(
             usuario.celular,
             valorConPorcentaje,
@@ -1021,7 +1030,6 @@ router.post('/acreditar-saldo2/:id', authenticateToken, async (req, res) => {
         }
       } catch (whatsappError) {
         console.error('Error enviando WhatsApp:', whatsappError);
-        // No afecta la operación principal
       }
     });
 

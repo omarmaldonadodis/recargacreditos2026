@@ -48,8 +48,8 @@ Deposito.init({
   
   // NUEVO: Tipo de depósito
   tipoDeposito: {
-    type: DataTypes.ENUM('efectivo', 'transferencia', 'ajuste', 'otro'),
-    defaultValue: 'efectivo'
+    type: DataTypes.ENUM('stp', 'cuenta_proveedor', 'cuenta_personal', 'inyeccion','efectivo', 'transferencia', 'ajuste', 'otro'),
+    defaultValue: 'stp'
   },
   
   // NUEVO: Referencia bancaria
